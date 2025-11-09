@@ -2,7 +2,6 @@ import { StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Link } from "expo-router";
 import React from "react";
-import "../global.css";
 
 import { Redirect } from "expo-router";
 
