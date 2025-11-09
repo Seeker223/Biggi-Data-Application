@@ -10,11 +10,10 @@ import {
   Pressable,
   Dimensions,
   Platform,
-  Vibration,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { MotiView, MotiImage } from "moti";
+import { MotiView, MotiText } from "moti";
 
 const { width } = Dimensions.get("window");
 
@@ -31,60 +30,55 @@ const HomeScreen = () => {
 
   const closeModal = () => setModalVisible(false);
 
-  const handleBellPress = () => {
-    Vibration.vibrate(80);
-    openModal("No new notifications 📬");
-  };
-
   return (
     <View style={styles.container}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 200 }}
+        contentContainerStyle={{ paddingBottom: 180 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.userInfo}>
-            <MotiImage
-              from={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", duration: 800 }}
+            <Image
               source={{
-                uri:
-                  "https://randomuser.me/api/portraits/men/32.jpg" ||
-                  "https://via.placeholder.com/60",
+                uri: "https://i.pravatar.cc/150?img=32",
               }}
               style={styles.avatar}
             />
             <View>
-              <Text style={styles.welcomeText}>Hi, Jason</Text>
+              <MotiText
+                from={{ opacity: 0, translateY: -10 }}
+                animate={{ opacity: 1, translateY: 0 }}
+                transition={{ type: "timing", duration: 600 }}
+                style={styles.welcomeText}
+              >
+                Hi, Jason
+              </MotiText>
               <Text style={styles.subText}>Welcome back</Text>
             </View>
           </View>
 
-          <MotiView
-            from={{ rotate: "0deg" }}
-            animate={{
-              rotate: ["0deg", "-20deg", "20deg", "-10deg", "10deg", "0deg"],
-            }}
-            transition={{
-              loop: false,
-              delay: 100,
-              type: "timing",
-              duration: 1000,
-            }}
-          >
-            <TouchableOpacity style={styles.bellBtn} onPress={handleBellPress}>
+          {/* Animated Notification */}
+          <TouchableOpacity style={styles.bellBtn}>
+            <MotiView
+              from={{ scale: 1 }}
+              animate={{ scale: [1, 1.3, 1] }}
+              transition={{
+                type: "timing",
+                loop: true,
+                duration: 1000,
+              }}
+            >
               <Ionicons name="notifications" size={26} color="#FF7A00" />
-            </TouchableOpacity>
-          </MotiView>
+            </MotiView>
+          </TouchableOpacity>
         </View>
 
         {/* Wallet Card */}
         <MotiView
-          from={{ translateY: 40, opacity: 0 }}
-          animate={{ translateY: 0, opacity: 1 }}
-          transition={{ type: "timing", duration: 700 }}
+          from={{ opacity: 0, translateY: 20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: "timing", duration: 800 }}
           style={styles.walletCard}
         >
           <View style={styles.balanceRow}>
@@ -128,28 +122,35 @@ const HomeScreen = () => {
           </View>
         </MotiView>
 
-        {/* Info Text */}
         <Text style={styles.infoText}>
           ✅ Buy Any Bundle → Unlock Daily & Weekly Games + Monthly Draw
         </Text>
 
-        {/* White Section */}
+        {/* White Curved Section */}
         <View style={styles.whiteWrapper}>
           <LinearGradient
             colors={["#ffffff", "#f7f7f7"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
             style={styles.whiteSection}
           >
             {/* Bundle Card */}
             <MotiView
-              from={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", duration: 900 }}
+              from={{ opacity: 0, translateY: 30 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: "timing", duration: 700 }}
               style={styles.bundleCard}
             >
               <View style={styles.bundleLeft}>
-                <Ionicons name="wifi-outline" size={22} color="#000" />
+                <MotiView
+                  from={{ scale: 1 }}
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{
+                    loop: true,
+                    type: "timing",
+                    duration: 1500,
+                  }}
+                >
+                  <Ionicons name="wifi-outline" size={28} color="#FF7A00" />
+                </MotiView>
                 <Text style={styles.bundleTitle}>Buy Data Bundle Daily</Text>
                 <TouchableOpacity
                   style={styles.smallBtn}
@@ -158,9 +159,21 @@ const HomeScreen = () => {
                   <Text style={styles.smallBtnText}>Buy Now</Text>
                 </TouchableOpacity>
               </View>
+
               <View style={styles.dividerVertical} />
+
               <View style={styles.bundleRight}>
-                <Ionicons name="ticket-outline" size={22} color="#000" />
+                <MotiView
+                  from={{ rotate: "0deg" }}
+                  animate={{ rotate: ["0deg", "15deg", "0deg", "-15deg", "0deg"] }}
+                  transition={{
+                    loop: true,
+                    type: "timing",
+                    duration: 2500,
+                  }}
+                >
+                  <Ionicons name="ticket-outline" size={26} color="#000" />
+                </MotiView>
                 <Text style={styles.bundleDesc}>
                   Win Daily Tickets + One-Time Weekly Ticket To Participate In
                   Our Reward Games
@@ -170,12 +183,16 @@ const HomeScreen = () => {
 
             {/* Game Cards */}
             <MotiView
-              from={{ opacity: 0, translateY: 20 }}
-              animate={{ opacity: 1, translateY: 0 }}
-              transition={{ delay: 400 }}
+              from={{ scale: 0.9 }}
+              animate={{ scale: [0.9, 1, 0.9] }}
+              transition={{
+                loop: true,
+                type: "timing",
+                duration: 3000,
+              }}
               style={styles.gameCard}
             >
-              <Ionicons name="game-controller-outline" size={28} color="#fff" />
+              <Ionicons name="game-controller" size={28} color="#fff" />
               <Text style={styles.gameTitle}>
                 Daily Number Picker Reward Game
               </Text>
@@ -188,9 +205,14 @@ const HomeScreen = () => {
             </MotiView>
 
             <MotiView
-              from={{ opacity: 0, translateY: 20 }}
-              animate={{ opacity: 1, translateY: 0 }}
-              transition={{ delay: 600 }}
+              from={{ scale: 0.9 }}
+              animate={{ scale: [0.9, 1, 0.9] }}
+              transition={{
+                loop: true,
+                type: "timing",
+                duration: 3000,
+                delay: 1000,
+              }}
               style={styles.gameCard}
             >
               <Ionicons name="football-outline" size={28} color="#fff" />
@@ -199,9 +221,7 @@ const HomeScreen = () => {
               </Text>
               <TouchableOpacity
                 style={styles.playBtn}
-                onPress={() =>
-                  openModal("Weekly Premier League Game launched")
-                }
+                onPress={() => openModal("Weekly Premier League Game launched")}
               >
                 <Text style={styles.playText}>Play Now</Text>
               </TouchableOpacity>
@@ -211,19 +231,10 @@ const HomeScreen = () => {
       </ScrollView>
 
       {/* Modal */}
-      <Modal
-        visible={modalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={closeModal}
-      >
+      <Modal visible={modalVisible} transparent animationType="fade">
         <Pressable style={styles.modalOverlay} onPress={closeModal}>
           <View style={styles.modalContainer}>
-            <Ionicons
-              name="checkmark-circle-outline"
-              size={50}
-              color="#FF7A00"
-            />
+            <Ionicons name="checkmark-circle-outline" size={50} color="#FF7A00" />
             <Text style={styles.modalText}>{modalMessage}</Text>
             <TouchableOpacity style={styles.closeBtn} onPress={closeModal}>
               <Text style={styles.closeText}>Close</Text>
@@ -232,27 +243,32 @@ const HomeScreen = () => {
         </Pressable>
       </Modal>
 
-      {/* Floating Bottom Navigation */}
+      {/* Animated Floating Bottom Navigation */}
       <View style={styles.bottomNavWrapper}>
-        <MotiView
-          from={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: "timing", duration: 800 }}
-          style={styles.bottomNav}
-        >
-          <TouchableOpacity>
-            <Ionicons name="home" size={28} color="#FF7A00" />
-          </TouchableOpacity>
-          <TouchableOpacity>
-            <Ionicons name="receipt-outline" size={28} color="#000" />
-          </TouchableOpacity>
-          <TouchableOpacity>
-            <Ionicons name="wallet-outline" size={28} color="#000" />
-          </TouchableOpacity>
-          <TouchableOpacity>
-            <Ionicons name="person-outline" size={28} color="#000" />
-          </TouchableOpacity>
-        </MotiView>
+        <View style={styles.bottomNav}>
+          {["home", "receipt-outline", "wallet-outline", "person-outline"].map(
+            (icon, index) => (
+              <MotiView
+                key={index}
+                from={{ scale: 1 }}
+                animate={{ scale: [1, 1.3, 1] }}
+                transition={{
+                  loop: true,
+                  duration: 2000,
+                  delay: index * 300,
+                }}
+              >
+                <TouchableOpacity>
+                  <Ionicons
+                    name={icon}
+                    size={28}
+                    color={index === 0 ? "#FF7A00" : "#000"}
+                  />
+                </TouchableOpacity>
+              </MotiView>
+            )
+          )}
+        </View>
       </View>
     </View>
   );
@@ -270,30 +286,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   userInfo: { flexDirection: "row", alignItems: "center" },
-  avatar: { width: 55, height: 55, borderRadius: 30, marginRight: 10 },
+  avatar: {
+    width: 55,
+    height: 55,
+    borderRadius: 30,
+    marginRight: 10,
+    borderWidth: 2,
+    borderColor: "#FF7A00",
+  },
   welcomeText: { color: "#fff", fontSize: 20, fontWeight: "700" },
   subText: { color: "#bbb", fontSize: 14 },
   bellBtn: {
-    backgroundColor: "#FFF5E5",
-    padding: 10,
+    backgroundColor: "#fff",
+    padding: 12,
     borderRadius: 30,
     shadowColor: "#FF7A00",
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 6,
+    shadowOpacity: 0.5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
     elevation: 8,
   },
-
   walletCard: {
     backgroundColor: "#FFA500",
     borderRadius: 15,
     padding: 16,
     marginHorizontal: 16,
-    shadowColor: "#FF7A00",
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 8,
-    elevation: 10,
   },
   balanceRow: {
     flexDirection: "row",
@@ -317,12 +334,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   divider: { height: 1, backgroundColor: "#00000030", marginVertical: 10 },
-  infoText: {
-    color: "#fff",
-    fontSize: 13,
-    marginTop: 14,
-    textAlign: "center",
-  },
+  infoText: { color: "#fff", fontSize: 13, marginTop: 14, textAlign: "center" },
   whiteWrapper: {
     marginTop: 20,
     width,
@@ -332,8 +344,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 40,
     overflow: "hidden",
   },
-  whiteSection: { paddingTop: 25, paddingHorizontal: 16, minHeight: 500 },
-
+  whiteSection: { paddingTop: 25, paddingHorizontal: 16, flex: 1, minHeight: 500 },
   bundleCard: {
     backgroundColor: "#fff",
     borderRadius: 20,
@@ -360,7 +371,6 @@ const styles = StyleSheet.create({
   },
   smallBtnText: { fontSize: 12, color: "#fff" },
   dividerVertical: { width: 1, backgroundColor: "#ddd", marginHorizontal: 10 },
-
   gameCard: {
     backgroundColor: "#222",
     borderRadius: 16,
@@ -386,7 +396,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   playText: { color: "#fff", fontWeight: "700" },
-
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.6)",
@@ -400,7 +409,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 25,
   },
-  modalText: { fontSize: 16, textAlign: "center", marginVertical: 12 },
+  modalText: { fontSize: 16, textAlign: "center", marginVertical: 12, color: "#333" },
   closeBtn: {
     backgroundColor: "#FF7A00",
     paddingHorizontal: 20,
@@ -408,7 +417,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   closeText: { color: "#fff", fontWeight: "700" },
-
   bottomNavWrapper: {
     position: "absolute",
     bottom: Platform.OS === "android" ? 25 : 35,
@@ -424,10 +432,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     width: "88%",
     shadowColor: "#FF7A00",
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.4,
     shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 10,
-    elevation: 20,
+    shadowRadius: 8,
+    elevation: 15,
   },
 });
 
