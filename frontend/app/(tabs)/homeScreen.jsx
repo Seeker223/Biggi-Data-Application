@@ -8,8 +8,15 @@ import {
   ScrollView,
   Modal,
   Pressable,
+  Dimensions,
+  Platform,
+  Vibration,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { MotiView, MotiImage } from "moti";
+
+const { width } = Dimensions.get("window");
 
 const HomeScreen = () => {
   const [mainBalance, setMainBalance] = useState(20000);
@@ -24,17 +31,29 @@ const HomeScreen = () => {
 
   const closeModal = () => setModalVisible(false);
 
+  const handleBellPress = () => {
+    Vibration.vibrate(80);
+    openModal("No new notifications 📬");
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: 200 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.userInfo}>
-            <Image
-              source={{ uri: "https://via.placeholder.com/60" }}
+            <MotiImage
+              from={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", duration: 800 }}
+              source={{
+                uri:
+                  "https://randomuser.me/api/portraits/men/32.jpg" ||
+                  "https://via.placeholder.com/60",
+              }}
               style={styles.avatar}
             />
             <View>
@@ -42,13 +61,32 @@ const HomeScreen = () => {
               <Text style={styles.subText}>Welcome back</Text>
             </View>
           </View>
-          <TouchableOpacity style={styles.bellBtn}>
-            <Ionicons name="notifications-outline" size={24} color="#000" />
-          </TouchableOpacity>
+
+          <MotiView
+            from={{ rotate: "0deg" }}
+            animate={{
+              rotate: ["0deg", "-20deg", "20deg", "-10deg", "10deg", "0deg"],
+            }}
+            transition={{
+              loop: false,
+              delay: 100,
+              type: "timing",
+              duration: 1000,
+            }}
+          >
+            <TouchableOpacity style={styles.bellBtn} onPress={handleBellPress}>
+              <Ionicons name="notifications" size={26} color="#FF7A00" />
+            </TouchableOpacity>
+          </MotiView>
         </View>
 
-        {/* Wallet Section */}
-        <View style={styles.walletCard}>
+        {/* Wallet Card */}
+        <MotiView
+          from={{ translateY: 40, opacity: 0 }}
+          animate={{ translateY: 0, opacity: 1 }}
+          transition={{ type: "timing", duration: 700 }}
+          style={styles.walletCard}
+        >
           <View style={styles.balanceRow}>
             <View>
               <Text style={styles.label}>Main Balance</Text>
@@ -88,62 +126,91 @@ const HomeScreen = () => {
               <Text style={styles.actionText}>Redeem</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </MotiView>
 
-        {/* Info */}
+        {/* Info Text */}
         <Text style={styles.infoText}>
           ✅ Buy Any Bundle → Unlock Daily & Weekly Games + Monthly Draw
         </Text>
 
-        {/* Bundle Section */}
-        <View style={styles.bundleCard}>
-          <View style={styles.bundleLeft}>
-            <Ionicons name="wifi-outline" size={22} color="#000" />
-            <Text style={styles.bundleTitle}>Buy Data Bundle Daily</Text>
-            <TouchableOpacity
-              style={styles.smallBtn}
-              onPress={() => openModal("Bundle purchase in progress")}
+        {/* White Section */}
+        <View style={styles.whiteWrapper}>
+          <LinearGradient
+            colors={["#ffffff", "#f7f7f7"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={styles.whiteSection}
+          >
+            {/* Bundle Card */}
+            <MotiView
+              from={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", duration: 900 }}
+              style={styles.bundleCard}
             >
-              <Text style={styles.smallBtnText}>Buy Now</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.dividerVertical} />
-          <View style={styles.bundleRight}>
-            <Ionicons name="ticket-outline" size={22} color="#000" />
-            <Text style={styles.bundleDesc}>
-              Win Daily Tickets + One-Time Weekly Ticket To Participate In Our
-              Reward Games
-            </Text>
-          </View>
-        </View>
+              <View style={styles.bundleLeft}>
+                <Ionicons name="wifi-outline" size={22} color="#000" />
+                <Text style={styles.bundleTitle}>Buy Data Bundle Daily</Text>
+                <TouchableOpacity
+                  style={styles.smallBtn}
+                  onPress={() => openModal("Bundle purchase in progress")}
+                >
+                  <Text style={styles.smallBtnText}>Buy Now</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.dividerVertical} />
+              <View style={styles.bundleRight}>
+                <Ionicons name="ticket-outline" size={22} color="#000" />
+                <Text style={styles.bundleDesc}>
+                  Win Daily Tickets + One-Time Weekly Ticket To Participate In
+                  Our Reward Games
+                </Text>
+              </View>
+            </MotiView>
 
-        {/* Games Section */}
-        <View style={styles.gameCard}>
-          <Ionicons name="game-controller-outline" size={28} color="#fff" />
-          <Text style={styles.gameTitle}>Daily Number Picker Reward Game</Text>
-          <TouchableOpacity
-            style={styles.playBtn}
-            onPress={() => openModal("Daily Number Picker Game launched")}
-          >
-            <Text style={styles.playText}>Play Now</Text>
-          </TouchableOpacity>
-        </View>
+            {/* Game Cards */}
+            <MotiView
+              from={{ opacity: 0, translateY: 20 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ delay: 400 }}
+              style={styles.gameCard}
+            >
+              <Ionicons name="game-controller-outline" size={28} color="#fff" />
+              <Text style={styles.gameTitle}>
+                Daily Number Picker Reward Game
+              </Text>
+              <TouchableOpacity
+                style={styles.playBtn}
+                onPress={() => openModal("Daily Number Picker Game launched")}
+              >
+                <Text style={styles.playText}>Play Now</Text>
+              </TouchableOpacity>
+            </MotiView>
 
-        <View style={styles.gameCard}>
-          <Ionicons name="football-outline" size={28} color="#fff" />
-          <Text style={styles.gameTitle}>
-            Weekly Premier League Predict and Win Reward Game
-          </Text>
-          <TouchableOpacity
-            style={styles.playBtn}
-            onPress={() => openModal("Weekly Premier League Game launched")}
-          >
-            <Text style={styles.playText}>Play Now</Text>
-          </TouchableOpacity>
+            <MotiView
+              from={{ opacity: 0, translateY: 20 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ delay: 600 }}
+              style={styles.gameCard}
+            >
+              <Ionicons name="football-outline" size={28} color="#fff" />
+              <Text style={styles.gameTitle}>
+                Weekly Premier League Predict and Win Reward Game
+              </Text>
+              <TouchableOpacity
+                style={styles.playBtn}
+                onPress={() =>
+                  openModal("Weekly Premier League Game launched")
+                }
+              >
+                <Text style={styles.playText}>Play Now</Text>
+              </TouchableOpacity>
+            </MotiView>
+          </LinearGradient>
         </View>
       </ScrollView>
 
-      {/* Modal Section */}
+      {/* Modal */}
       <Modal
         visible={modalVisible}
         transparent
@@ -165,14 +232,27 @@ const HomeScreen = () => {
         </Pressable>
       </Modal>
 
-      {/* Bottom Navigation */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity>
-          <Ionicons name="home" size={28} color="#FF7A00" />
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Ionicons name="receipt-outline" size={28} color="#000" />
-        </TouchableOpacity>
+      {/* Floating Bottom Navigation */}
+      <View style={styles.bottomNavWrapper}>
+        <MotiView
+          from={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "timing", duration: 800 }}
+          style={styles.bottomNav}
+        >
+          <TouchableOpacity>
+            <Ionicons name="home" size={28} color="#FF7A00" />
+          </TouchableOpacity>
+          <TouchableOpacity>
+            <Ionicons name="receipt-outline" size={28} color="#000" />
+          </TouchableOpacity>
+          <TouchableOpacity>
+            <Ionicons name="wallet-outline" size={28} color="#000" />
+          </TouchableOpacity>
+          <TouchableOpacity>
+            <Ionicons name="person-outline" size={28} color="#000" />
+          </TouchableOpacity>
+        </MotiView>
       </View>
     </View>
   );
@@ -181,60 +261,47 @@ const HomeScreen = () => {
 export default HomeScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#000",
-    paddingHorizontal: 16,
-  },
+  container: { flex: 1, backgroundColor: "#000" },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginVertical: 20,
+    paddingHorizontal: 16,
   },
-  userInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  avatar: {
-    width: 55,
-    height: 55,
-    borderRadius: 30,
-    marginRight: 10,
-  },
-  welcomeText: {
-    color: "#fff",
-    fontSize: 20,
-    fontWeight: "700",
-  },
-  subText: {
-    color: "#bbb",
-    fontSize: 14,
-  },
+  userInfo: { flexDirection: "row", alignItems: "center" },
+  avatar: { width: 55, height: 55, borderRadius: 30, marginRight: 10 },
+  welcomeText: { color: "#fff", fontSize: 20, fontWeight: "700" },
+  subText: { color: "#bbb", fontSize: 14 },
   bellBtn: {
-    backgroundColor: "#FFA50020",
+    backgroundColor: "#FFF5E5",
     padding: 10,
     borderRadius: 30,
+    shadowColor: "#FF7A00",
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 6,
+    elevation: 8,
   },
+
   walletCard: {
     backgroundColor: "#FFA500",
     borderRadius: 15,
     padding: 16,
+    marginHorizontal: 16,
+    shadowColor: "#FF7A00",
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 8,
+    elevation: 10,
   },
   balanceRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  label: {
-    color: "#222",
-    fontWeight: "600",
-  },
-  balance: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: "#000",
-  },
+  label: { color: "#222", fontWeight: "600" },
+  balance: { fontSize: 26, fontWeight: "800", color: "#000" },
   actionBtn: {
     backgroundColor: "#000",
     paddingVertical: 6,
@@ -242,71 +309,69 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginVertical: 4,
   },
-  actionText: {
-    color: "#fff",
-    fontWeight: "600",
-  },
+  actionText: { color: "#fff", fontWeight: "600" },
   redeemBtn: {
     backgroundColor: "#444",
     paddingVertical: 8,
     paddingHorizontal: 20,
     borderRadius: 8,
   },
-  divider: {
-    height: 1,
-    backgroundColor: "#00000030",
-    marginVertical: 10,
-  },
+  divider: { height: 1, backgroundColor: "#00000030", marginVertical: 10 },
   infoText: {
     color: "#fff",
     fontSize: 13,
     marginTop: 14,
     textAlign: "center",
   },
+  whiteWrapper: {
+    marginTop: 20,
+    width,
+    alignSelf: "center",
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 40,
+    borderTopRightRadius: 40,
+    overflow: "hidden",
+  },
+  whiteSection: { paddingTop: 25, paddingHorizontal: 16, minHeight: 500 },
+
   bundleCard: {
     backgroundColor: "#fff",
-    borderRadius: 16,
-    marginTop: 16,
-    padding: 16,
+    borderRadius: 20,
+    marginTop: 8,
+    padding: 18,
     flexDirection: "row",
     justifyContent: "space-between",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 10,
   },
-  bundleLeft: {
-    flex: 1,
-    alignItems: "center",
-  },
-  bundleRight: {
-    flex: 1.3,
-  },
-  bundleTitle: {
-    fontWeight: "700",
-    marginVertical: 6,
-  },
-  bundleDesc: {
-    fontSize: 13,
-    color: "#333",
-  },
+  bundleLeft: { flex: 1, alignItems: "center" },
+  bundleRight: { flex: 1.3 },
+  bundleTitle: { fontWeight: "700", marginVertical: 6, fontSize: 15 },
+  bundleDesc: { fontSize: 13, color: "#333", lineHeight: 18 },
   smallBtn: {
-    backgroundColor: "#ccc",
+    backgroundColor: "#000",
     borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    marginTop: 4,
   },
-  smallBtnText: {
-    fontSize: 12,
-    color: "#000",
-  },
-  dividerVertical: {
-    width: 1,
-    backgroundColor: "#ddd",
-    marginHorizontal: 10,
-  },
+  smallBtnText: { fontSize: 12, color: "#fff" },
+  dividerVertical: { width: 1, backgroundColor: "#ddd", marginHorizontal: 10 },
+
   gameCard: {
     backgroundColor: "#222",
     borderRadius: 16,
     padding: 18,
     alignItems: "center",
-    marginTop: 16,
+    marginTop: 18,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 6,
   },
   gameTitle: {
     color: "#fff",
@@ -320,10 +385,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 24,
   },
-  playText: {
-    color: "#fff",
-    fontWeight: "700",
-  },
+  playText: { color: "#fff", fontWeight: "700" },
+
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.6)",
@@ -337,32 +400,34 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 25,
   },
-  modalText: {
-    fontSize: 16,
-    textAlign: "center",
-    marginVertical: 12,
-    color: "#333",
-  },
+  modalText: { fontSize: 16, textAlign: "center", marginVertical: 12 },
   closeBtn: {
     backgroundColor: "#FF7A00",
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 8,
   },
-  closeText: {
-    color: "#fff",
-    fontWeight: "700",
+  closeText: { color: "#fff", fontWeight: "700" },
+
+  bottomNavWrapper: {
+    position: "absolute",
+    bottom: Platform.OS === "android" ? 25 : 35,
+    width: "100%",
+    alignItems: "center",
   },
   bottomNav: {
     flexDirection: "row",
     justifyContent: "space-around",
+    alignItems: "center",
     backgroundColor: "#fff",
-    borderRadius: 30,
-    paddingVertical: 10,
-    position: "absolute",
-    bottom: 10,
-    width: "90%",
-    alignSelf: "center",
+    borderRadius: 40,
+    paddingVertical: 12,
+    width: "88%",
+    shadowColor: "#FF7A00",
+    shadowOpacity: 0.35,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 20,
   },
 });
 
