@@ -3,18 +3,16 @@ import React from "react";
 import { AuthProvider } from "../context/AuthContext";
 import { Stack } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
-import { StripeProvider } from "@stripe/stripe-react-native";
+// import { StripeProvider } from "@stripe/stripe-react-native";
 
 export default function RootLayout() {
   useKeepAwake();
   return (
 
 
-    <StripeProvider publishableKey=''>
     <AuthProvider>
       <Stack screenOptions={{ headerShown: false }} />
     </AuthProvider>
-    </StripeProvider>
   );
 }
 
