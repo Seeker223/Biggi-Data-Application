@@ -1,16 +1,278 @@
-import { View, Text, Button } from 'react-native'
-import React from 'react'
-import { Link } from 'expo-router'
+import React, { useState } from "react";
+import { 
+  View, 
+  Text, 
+  TouchableOpacity, 
+  TextInput, 
+  Modal, 
+  StyleSheet, 
+  FlatList 
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
-const withDrawScreen = () => {
+const banks = [
+  "Access Bank",
+  "Guarantee Trust Bank",
+  "Wema Bank",
+  "Zenith Bank",
+  "First Bank",
+  "United Bank for Africa",
+];
+
+const WithdrawScreen = ({ navigation }) => {
+  const [method, setMethod] = useState("Opay");
+  const [bank, setBank] = useState("");
+  const [amount, setAmount] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [accountName, setAccountName] = useState("");
+  const [showBankList, setShowBankList] = useState(false);
+  const [successModal, setSuccessModal] = useState(false);
+
+  const handleWithdraw = () => {
+    setSuccessModal(true);
+  };
+
   return (
-    <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-          <Text style={{ fontSize: 24 }}>withdraw page</Text>
-          <Link href="/home" asChild>
-            <Button title="Go Back Home" />
-          </Link>
-        </View>
-  )
-}
+    <View style={styles.container}>
+      {/* Back Button */}
+      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <Ionicons name="arrow-back" size={24} color="black" />
+      </TouchableOpacity>
 
-export default withDrawScreen
+      {/* Toggle Tabs */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tab, method === "Opay" && styles.activeTab]}
+          onPress={() => setMethod("Opay")}
+        >
+          <Text style={[styles.tabText, method === "Opay" && styles.activeTabText]}>
+            Opay
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tab, method === "Bank Transfer" && styles.activeTab]}
+          onPress={() => setMethod("Bank Transfer")}
+        >
+          <Text style={[styles.tabText, method === "Bank Transfer" && styles.activeTabText]}>
+            Bank Transfer
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <Text style={styles.helperText}>
+        {method === "Opay"
+          ? "Pay only to Opay accounts"
+          : "Select bank"}
+      </Text>
+
+      {/* Bank Dropdown */}
+      {method === "Bank Transfer" && (
+        <>
+          <TouchableOpacity
+            style={styles.input}
+            onPress={() => setShowBankList(!showBankList)}
+          >
+            <Text style={styles.placeholder}>
+              {bank || "Select bank..."}
+            </Text>
+            <Ionicons name="chevron-down" size={20} color="gray" />
+          </TouchableOpacity>
+
+          {showBankList && (
+            <View style={styles.dropdown}>
+              <FlatList
+                data={banks}
+                keyExtractor={(item, index) => index.toString()}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      setBank(item);
+                      setShowBankList(false);
+                    }}
+                  >
+                    <Text style={styles.dropdownText}>{item}</Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+          )}
+        </>
+      )}
+
+      {/* Input Fields */}
+      <TextInput
+        style={styles.input}
+        placeholder="Account number"
+        placeholderTextColor="#888"
+        keyboardType="numeric"
+        value={accountNumber}
+        onChangeText={setAccountNumber}
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="Amount"
+        placeholderTextColor="#888"
+        keyboardType="numeric"
+        value={amount}
+        onChangeText={setAmount}
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="Account name"
+        placeholderTextColor="#888"
+        value={accountName}
+        onChangeText={setAccountName}
+      />
+
+      {/* Withdraw Button */}
+      <TouchableOpacity style={styles.button} onPress={handleWithdraw}>
+        <Text style={styles.buttonText}>Withdraw</Text>
+      </TouchableOpacity>
+
+      {/* Success Modal */}
+      <Modal visible={successModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Ionicons name="checkmark-circle" size={60} color="green" />
+            <Text style={styles.modalTitle}>Success</Text>
+            <Text style={styles.modalMessage}>
+              Withdraw will be sent to the provided destination
+            </Text>
+
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setSuccessModal(false)}
+            >
+              <Text style={styles.modalButtonText}>Exit</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+};
+
+export default WithdrawScreen;
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
+    paddingHorizontal: 20,
+    paddingTop: 60,
+  },
+  backButton: {
+    marginBottom: 20,
+  },
+  tabContainer: {
+    flexDirection: "row",
+    backgroundColor: "#E0E0E0",
+    borderRadius: 10,
+    overflow: "hidden",
+    marginBottom: 10,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  activeTab: {
+    backgroundColor: "#FF7A00",
+  },
+  tabText: {
+    fontSize: 16,
+    color: "#000",
+    fontWeight: "500",
+  },
+  activeTabText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+  helperText: {
+    marginVertical: 10,
+    fontSize: 13,
+    color: "#333",
+  },
+  input: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#E5E5E5",
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    height: 50,
+    marginBottom: 15,
+    justifyContent: "space-between",
+  },
+  placeholder: {
+    color: "#666",
+    fontSize: 15,
+  },
+  dropdown: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    maxHeight: 200,
+    marginBottom: 15,
+    elevation: 5,
+  },
+  dropdownItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+  },
+  dropdownText: {
+    fontSize: 15,
+    color: "#333",
+  },
+  button: {
+    backgroundColor: "#FF7A00",
+    borderRadius: 10,
+    paddingVertical: 15,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  buttonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.3)",
+  },
+  modalBox: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 25,
+    width: "80%",
+    alignItems: "center",
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginTop: 10,
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: "#333",
+    textAlign: "center",
+    marginVertical: 10,
+  },
+  modalButton: {
+    backgroundColor: "#FF7A00",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 30,
+    marginTop: 15,
+  },
+  modalButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+});
