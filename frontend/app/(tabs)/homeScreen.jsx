@@ -61,7 +61,7 @@ const HomeScreen = () => {
           </View>
 
           {/* Animated Notification */}
-          <TouchableOpacity style={styles.bellBtn}>
+          <TouchableOpacity style={styles.bellBtn} onPress={goToNotification}>
             <MotiView
               from={{ scale: 1 }}
               animate={{ scale: [1, 1.3, 1] }}
@@ -125,7 +125,7 @@ const HomeScreen = () => {
         </MotiView>
 
         <Text style={styles.infoText}>
-          ✅ Buy Any Bundle → Unlock Daily & Weekly Games + Monthly Draw
+          ✅ Buy Any Bundle → Unlock Daily & {"\n"} Weekly Games + Monthly Draw
         </Text>
 
         {/* White Curved Section */}
@@ -248,22 +248,22 @@ const HomeScreen = () => {
                 }}
               >
                 <TouchableOpacity
-                  onPress={() =>
-                    index === 0
-                      ? router.push("/homeScreen")
-                      : index === 1
-                      ? router.push("/transactionsScreen")
-                      : index === 2
-                      ? router.push("/walletScreen")
-                      : router.push("/profileScreen")
-                  }
-                >
-                  <Ionicons
-                    name={icon}
-                    size={28}
-                    color={index === 0 ? "#FF7A00" : "#000"}
-                  />
-                </TouchableOpacity>
+      onPress={() =>
+        index === 0
+          ? navigation.navigate("homeScreen")
+          : index === 1
+          ? navigation.navigate("(tabs)/DailyLuckyDrawScreen")
+          : index === 2
+          ? navigation.navigate("WalletScreen")
+          : navigation.navigate("ProfileScreen")
+      }
+    >
+      <Ionicons
+        name={icon}
+        size={28}
+        color={index === 0 ? "#FF7A00" : "#000"}
+      />
+    </TouchableOpacity>
               </MotiView>
             )
           )}

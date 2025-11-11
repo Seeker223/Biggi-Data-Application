@@ -121,9 +121,9 @@ const SelectPlanScreen = () => {
 
             <TouchableOpacity
               style={styles.closeButton}
-              onPress={() => setSuccessModalVisible(false)}
+               onPress={() => navigation.navigate('screens/BuyDataSuccessScreen')}
             >
-              <Text style={styles.closeText}>OK</Text>
+              <Text style={styles.closeText}>continue</Text>
             </TouchableOpacity>
           </View>
         </View>
