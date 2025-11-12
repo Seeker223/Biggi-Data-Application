@@ -32,7 +32,7 @@ export default function SignupScreen() {
   const handleRegister = async () => {
     const { username, email, password, phoneNumber, birthDate, confirmPassword } = form;
 
-    if (!username || !email || !password ||!phoneNumber ||!birthDate|| !confirmPassword) {
+    if (!username || !email || !password || !confirmPassword) {
       return Alert.alert("Missing Fields", "Please fill all required fields.");
     }
     if (password !== confirmPassword) {
