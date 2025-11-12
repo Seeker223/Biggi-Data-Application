@@ -91,30 +91,7 @@ export default function SignupScreen() {
           />
         </View>
 
-        {/* Mobile */}
-        <View style={styles.inputWrapper}>
-          <Text style={styles.label}>Mobile Number</Text>
-          <TextInput
-            placeholder="+123 456 789"
-            placeholderTextColor="#9CA3AF"
-            keyboardType="phone-pad"
-            value={form.phoneNumber}
-            onChangeText={(t) => setForm({ ...form, phoneNumber: t })}
-            style={styles.textInput}
-          />
-        </View>
-
-        {/* Date of Birth */}
-        <View style={styles.inputWrapper}>
-          <Text style={styles.label}>Date Of Birth</Text>
-          <TextInput
-            placeholder="DD / MM / YYYY"
-            placeholderTextColor="#9CA3AF"
-            value={form.birthDate}
-            onChangeText={(t) => setForm({ ...form, birthDate: t })}
-            style={styles.textInput}
-          />
-        </View>
+       
 
         {/* Password */}
         <View style={styles.inputWrapper}>
