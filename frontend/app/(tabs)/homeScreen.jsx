@@ -14,6 +14,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { MotiView, MotiText } from "moti";
 import { useRouter } from "expo-router"; // ✅ for navigation
 import { useNavigation } from "@react-navigation/native";
+import FloatingBottomNav from "../../components/FloatingBottomNav";
 
 
 const { width } = Dimensions.get("window");
@@ -29,6 +30,7 @@ const HomeScreen = () => {
   const goToBundle = () => navigation.navigate("screens/BuyDataScreen");
   const goToRedeem = () => navigation.navigate("redeemScreen");
   const goToNotification = () => navigation.navigate("notificationScreen");
+  const goToProfile = () => navigation.navigate("withdrawScreen");
   const goToDailyGame = () => navigation.navigate("dailyGameScreen");
   const goToWeeklyDraw = () => navigation.navigate("WeeklyDrawScreen");
 
@@ -40,12 +42,14 @@ const HomeScreen = () => {
       >
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.userInfo}>
+          <View style={styles.userInfo} >
             <Image
               source={{
                 uri: "https://i.pravatar.cc/150?img=32",
-              }}
+              }
+            }
               style={styles.avatar}
+              
             />
             <View>
               <MotiText
@@ -54,9 +58,9 @@ const HomeScreen = () => {
                 transition={{ type: "timing", duration: 600 }}
                 style={styles.welcomeText}
               >
-                Hi, Jason
+                Hi, User
               </MotiText>
-              <Text style={styles.subText}>Welcome back</Text>
+              <Text style={styles.subText}  onPress={goToProfile}>Welcome back</Text>
             </View>
           </View>
 
@@ -233,42 +237,7 @@ const HomeScreen = () => {
       </ScrollView>
 
       {/* Animated Floating Bottom Navigation */}
-      <View style={styles.bottomNavWrapper}>
-        <View style={styles.bottomNav}>
-          {["home", "receipt-outline", "wallet-outline", "person-outline"].map(
-            (icon, index) => (
-              <MotiView
-                key={index}
-                from={{ scale: 1 }}
-                animate={{ scale: [1, 1.3, 1] }}
-                transition={{
-                  loop: true,
-                  duration: 2000,
-                  delay: index * 300,
-                }}
-              >
-                <TouchableOpacity
-      onPress={() =>
-        index === 0
-          ? navigation.navigate("homeScreen")
-          : index === 1
-          ? navigation.navigate("(tabs)/DailyLuckyDrawScreen")
-          : index === 2
-          ? navigation.navigate("WalletScreen")
-          : navigation.navigate("ProfileScreen")
-      }
-    >
-      <Ionicons
-        name={icon}
-        size={28}
-        color={index === 0 ? "#FF7A00" : "#000"}
-      />
-    </TouchableOpacity>
-              </MotiView>
-            )
-          )}
-        </View>
-      </View>
+      <FloatingBottomNav/>
     </View>
   );
 };

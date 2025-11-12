@@ -1,18 +1,19 @@
-// screens/DailyNumberDrawScreen.jsx
 import React, { useState } from "react";
 import {
   View,
   Text,
-  TouchableOpacity,
-  ScrollView,
-  Modal,
   StyleSheet,
+  TouchableOpacity,
+  Modal,
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-const DailyNumberDrawScreen = ({ navigation }) => {
+const { width } = Dimensions.get("window");
+
+export default function DailyNumberDrawScreen() {
   const [selectedNumbers, setSelectedNumbers] = useState([]);
-  const [successVisible, setSuccessVisible] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
 
   const toggleNumber = (num) => {
     if (selectedNumbers.includes(num)) {
@@ -24,227 +25,233 @@ const DailyNumberDrawScreen = ({ navigation }) => {
 
   const handleSubmit = () => {
     if (selectedNumbers.length === 5) {
-      setSuccessVisible(true);
+      setModalVisible(true);
     }
   };
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-        <Ionicons name="arrow-back" size={24} color="#fff" />
-      </TouchableOpacity>
-
-      <Text style={styles.title}>Daily Number Draw</Text>
-      <Text style={styles.desc}>
-        Select 5 numbers between 1 and 70 for your daily chance to win!{"\n"}
-        <Text style={styles.bold}>Every data bundle you buy gives you a ticket to play</Text>{"\n"}
-        You can play as many times as you want.{"\n"}
-        The more you play, the higher your chances of winning in today’s draw!
-      </Text>
-
-      <View style={styles.sectionHeader}>
-        <Ionicons name="star-outline" size={20} color="#FF8C00" />
-        <Text style={styles.sectionTitle}>Select Numbers</Text>
+      {/* Header */}
+      <View style={styles.headerRow}>
+        <Ionicons name="arrow-back" size={22} color="#fff" />
+        <Text style={styles.title}>Daily Number Draw</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.gridContainer}>
-        {[...Array(70)].map((_, i) => {
-          const num = i + 1;
-          const isSelected = selectedNumbers.includes(num);
-          return (
+      {/* Curved White Body */}
+      <View style={styles.body}>
+        <Text style={styles.subText}>
+          Select 5 numbers between 1 and 70 for your daily chance to win!{"\n"}
+          <Text style={{ fontWeight: "bold" }}>
+            Every data bundle you buy gives you a ticket to play
+          </Text>
+          {"\n"}You can play as many times as you want. The more you play, the
+          higher your chances of winning!
+        </Text>
+
+        <View style={styles.sectionTitle}>
+          <Ionicons name="star-outline" size={20} color="#FF8C00" />
+          <Text style={styles.sectionText}>Select Numbers</Text>
+        </View>
+
+        <Text style={styles.chooseText}>Choose 5 numbers (1–70)</Text>
+
+        {/* Numbers Grid */}
+        <View style={styles.grid}>
+          {Array.from({ length: 70 }, (_, i) => i + 1).map((num) => (
             <TouchableOpacity
               key={num}
-              style={[styles.numberBox, isSelected && styles.selectedBox]}
+              style={[
+                styles.numberBox,
+                selectedNumbers.includes(num) && styles.selectedBox,
+              ]}
               onPress={() => toggleNumber(num)}
             >
               <Text
-                style={[styles.numberText, isSelected && styles.selectedText]}
+                style={[
+                  styles.numberText,
+                  selectedNumbers.includes(num) && styles.selectedText,
+                ]}
               >
                 {num}
               </Text>
             </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+          ))}
+        </View>
 
-      <TouchableOpacity
-        style={[
-          styles.submitButton,
-          selectedNumbers.length < 5 && styles.disabledButton,
-        ]}
-        disabled={selectedNumbers.length < 5}
-        onPress={handleSubmit}
-      >
-        <Text style={styles.submitText}>Submit</Text>
-      </TouchableOpacity>
+        {/* Submit Button */}
+        <TouchableOpacity
+          style={[
+            styles.submitButton,
+            selectedNumbers.length === 5 && styles.submitActive,
+          ]}
+          onPress={handleSubmit}
+        >
+          <Text style={styles.submitText}>Submit</Text>
+        </TouchableOpacity>
 
-      <Text style={styles.note}>
-        <Text style={styles.noteBold}>Note:</Text> Results will be out by 7:00 pm{"\n"}
-        Refer to the results checker tab
-      </Text>
+        {/* Note */}
+        <Text style={styles.noteText}>
+          <Text style={{ color: "#FF8C00", fontWeight: "bold" }}>Note:</Text>{" "}
+          Results will be out by 7:00 pm{"\n"}
+          <Text style={{ fontSize: 13 }}>
+            Refer to the results checker tab
+          </Text>
+        </Text>
+      </View>
 
-      {/* ✅ Success Modal */}
-      <Modal
-        visible={successVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setSuccessVisible(false)}
-      >
+      {/* Curved Bottom Navigation */}
+      <View style={styles.bottomNav}>
+        <TouchableOpacity>
+          <Ionicons name="home-outline" size={26} color="#000" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Success Modal */}
+      <Modal visible={modalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
-            <Ionicons name="checkmark-circle" size={70} color="#00C851" />
+          <View style={styles.modalContent}>
+            <Ionicons
+              name="checkmark-circle"
+              size={60}
+              color="#4CD964"
+              style={{ marginBottom: 10 }}
+            />
             <Text style={styles.modalTitle}>Success</Text>
-            <Text style={styles.modalMessage}>Check back later</Text>
-
+            <Text style={styles.modalSubtitle}>Check back later</Text>
             <TouchableOpacity
-              style={styles.modalButton}
-              onPress={() => {
-                setSuccessVisible(false);
-                nnavigation.navigate("(tabs)/homeScreen");
-              }}
+              style={styles.okButton}
+              onPress={() => setModalVisible(false)}
             >
-              <Text style={styles.modalButtonText}>Ok</Text>
+              <Text style={styles.okText}>Ok</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
     </View>
   );
-};
+}
 
-export default DailyNumberDrawScreen;
+const BOX_SIZE = width / 10 - 5;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#000",
-    paddingHorizontal: 20,
-    paddingTop: 60,
-  },
-  backButton: {
-    position: "absolute",
-    top: 50,
-    left: 20,
-    zIndex: 1,
-  },
-  title: {
-    fontFamily: "Poppins-Bold",
-    fontSize: 24,
-    color: "#FF8C00",
-    textAlign: "center",
-    marginTop: 20,
-  },
-  desc: {
-    fontFamily: "Poppins-Regular",
-    color: "#fff",
-    fontSize: 13,
-    textAlign: "center",
-    marginVertical: 10,
-  },
-  bold: {
-    fontFamily: "Poppins-SemiBold",
-  },
-  sectionHeader: {
+  container: { flex: 1, backgroundColor: "#000" },
+  headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 20,
+    padding: 20,
+    paddingTop: 50,
+  },
+  title: {
+    color: "#FF8C00",
+    fontSize: 22,
+    fontWeight: "700",
+    marginLeft: 15,
+  },
+  body: {
+    flex: 1,
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 40,
+    borderTopRightRadius: 40,
+    padding: 20,
+    marginTop: 10,
+  },
+  subText: {
+    color: "#000",
+    fontSize: 13.5,
+    lineHeight: 18,
+    textAlign: "left",
   },
   sectionTitle: {
-    color: "#fff",
-    fontFamily: "Poppins-SemiBold",
-    marginLeft: 5,
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 15,
   },
-  gridContainer: {
+  sectionText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#000",
+    marginLeft: 6,
+  },
+  chooseText: {
+    marginTop: 8,
+    marginBottom: 10,
+    fontSize: 13,
+    color: "#666",
+  },
+  grid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "center",
-    marginVertical: 20,
-    backgroundColor: 'white',
-    borderRadius: 17,
-  
-  },
-  numberBox: {
-    width: 42,
-    height: 42,
-    borderWidth: 1,
-    borderColor: "#777",
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-    margin: 5,
-  },
-  selectedBox: {
-    backgroundColor: "#FF8C00",
-    borderColor: "#FF8C00",
-  },
-  numberText: {
-    color: "#777",
-    fontFamily: "Poppins-Regular",
-  },
-  selectedText: {
-    color: "#000",
-    fontFamily: "Poppins-Bold",
-  },
-  submitButton: {
-    backgroundColor: "#FF8C00",
-    borderRadius: 30,
-    paddingVertical: 12,
-    alignItems: "center",
     marginBottom: 10,
   },
-  disabledButton: {
-    opacity: 0.6,
+  numberBox: {
+    width: BOX_SIZE,
+    height: BOX_SIZE,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    justifyContent: "center",
+    alignItems: "center",
+    margin: 4,
+  },
+  numberText: { fontSize: 14, color: "#000" },
+  selectedBox: { backgroundColor: "#FF8C00", borderColor: "#FF8C00" },
+  selectedText: { color: "#fff", fontWeight: "bold" },
+  submitButton: {
+    alignSelf: "center",
+    backgroundColor: "#eee",
+    paddingVertical: 12,
+    width: "60%",
+    borderRadius: 25,
+    marginTop: 10,
+  },
+  submitActive: {
+    backgroundColor: "#FF8C00",
   },
   submitText: {
-    color: "#fff",
-    fontSize: 16,
-    fontFamily: "Poppins-Bold",
-  },
-  note: {
     textAlign: "center",
-    fontFamily: "Poppins-Regular",
-    color: "#fff",
-    fontSize: 12,
+    color: "#000",
+    fontWeight: "600",
   },
-  noteBold: {
-    color: "#FF8C00",
-    fontFamily: "Poppins-SemiBold",
+  noteText: {
+    textAlign: "center",
+    color: "#000",
+    marginTop: 8,
+    fontSize: 14,
+  },
+  bottomNav: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 35,
+    borderTopRightRadius: 35,
+    alignItems: "center",
+    paddingVertical: 8,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: "rgba(0,0,0,0.4)",
     justifyContent: "center",
     alignItems: "center",
   },
-  modalBox: {
-    width: "80%",
+  modalContent: {
     backgroundColor: "#fff",
-    borderRadius: 20,
+    width: "75%",
+    borderRadius: 15,
     alignItems: "center",
-    paddingVertical: 30,
-    paddingHorizontal: 20,
+    paddingVertical: 25,
+    elevation: 10,
   },
   modalTitle: {
-    fontSize: 20,
-    fontFamily: "Poppins-Bold",
+    fontSize: 18,
+    fontWeight: "700",
     color: "#000",
-    marginVertical: 10,
+    marginBottom: 5,
   },
-  modalMessage: {
-    fontFamily: "Poppins-Regular",
-    fontSize: 14,
-    color: "#333",
-  },
-  modalButton: {
+  modalSubtitle: { color: "#555", fontSize: 14, marginBottom: 15 },
+  okButton: {
     backgroundColor: "#FF8C00",
-    paddingVertical: 12,
     borderRadius: 25,
-    marginTop: 20,
-    width: "70%",
+    paddingVertical: 10,
+    paddingHorizontal: 40,
   },
-  modalButtonText: {
-    color: "#fff",
-    textAlign: "center",
-    fontFamily: "Poppins-SemiBold",
-  },
+  okText: { color: "#fff", fontWeight: "700", fontSize: 16 },
 });

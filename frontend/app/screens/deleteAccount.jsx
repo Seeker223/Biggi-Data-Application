@@ -1,12 +1,12 @@
 import { View, Text } from 'react-native'
 import React from 'react'
 
-const TicketClaimModal = () => {
+const deleteAccount = () => {
   return (
     <View>
-      <Text>TicketClaimModal</Text>
+      <Text>deleteAccount</Text>
     </View>
   )
 }
 
-export default TicketClaimModal
+export default deleteAccount

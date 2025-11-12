@@ -1,130 +1,148 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
+  Animated,
   ScrollView,
 } from "react-native";
-import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 
 const DailyLuckyDrawScreen = () => {
-  const [countdown, setCountdown] = useState("06:45:03");
-  const [isDailyWinner, setIsDailyWinner] = useState(false);
-  const [isWeeklyWinner, setIsWeeklyWinner] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(6 * 60 * 60 + 45 * 60 + 3); // 6h45m03s
+  const progress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Simulated countdown logic
-    const timer = setInterval(() => {
-      setCountdown((prev) => prev); // static display for now
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
     }, 1000);
-    return () => clearInterval(timer);
+
+    return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    Animated.timing(progress, {
+      toValue: 1,
+      duration: timeLeft * 1000,
+      useNativeDriver: false,
+    }).start();
+  }, []);
+
+  const formatTime = (seconds) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h.toString().padStart(2, "0")}:${m
+      .toString()
+      .padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  };
+
+  const progressWidth = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0%", "100%"],
+  });
 
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* ===== HEADER ===== */}
-        <View style={styles.headerCard}>
+        {/* Top Section */}
+        <LinearGradient
+          colors={["#FF8C00", "#FF5C00"]}
+          style={styles.headerSection}
+        >
           <View style={styles.headerRow}>
-            <FontAwesome5 name="star" size={18} color="#fff" />
+            <Ionicons name="star" size={22} color="#fff" />
             <Text style={styles.headerTitle}>Daily Lucky Draw</Text>
-            <View style={styles.hotBadge}>
+            <View style={styles.hotTag}>
               <Text style={styles.hotText}>Hot 🔥</Text>
             </View>
           </View>
 
-          {/* ===== PRIZE INFO ===== */}
-          <View style={styles.prizeRow}>
-            <View style={styles.prizeBox}>
-              <Text style={styles.prizeLabel}>🎁 Prize to be won</Text>
-              <Text style={styles.prizeAmount}>₦2,000</Text>
-              <Text style={styles.prizeSub}>Two Thousand Naira</Text>
+          <View style={styles.cardRow}>
+            {/* Prize Card */}
+            <View style={styles.glassCard}>
+              <Text style={styles.cardLabel}>🎁 Prize to be won</Text>
+              <Text style={styles.cardAmount}>₦2,000</Text>
+              <Text style={styles.cardSub}>Two Thousand Naira</Text>
             </View>
 
-            <View style={styles.prizeBox}>
-              <Text style={styles.prizeLabel}>🎫 Ticket Prize</Text>
-              <Text style={styles.ticketInfo}>Buy Any{"\n"}Biggi Data Bundle</Text>
+            {/* Ticket Card */}
+            <View style={styles.glassCard}>
+              <Text style={styles.cardLabel}>🎟 Ticket Prize</Text>
+              <Text style={styles.ticketText}>
+                Buy Any{"\n"}Biggi Data{"\n"}Bundle
+              </Text>
             </View>
           </View>
 
-          <View style={styles.timerBar}>
-            <Text style={styles.timerText}>
-              Results will be out in the next - {countdown}
+          {/* Countdown Progress */}
+          <View style={styles.progressContainer}>
+            <Animated.View
+              style={[styles.progressBar, { width: progressWidth }]}
+            />
+          </View>
+          <Text style={styles.countdownText}>
+            Results will be out in the next - {formatTime(timeLeft)}
+          </Text>
+        </LinearGradient>
+
+        {/* Weekly Section */}
+        <View style={styles.weeklySection}>
+          <View style={styles.weeklyRow}>
+            <View style={styles.glassCardLight}>
+              <Text style={styles.cardLabel}>🎁 Prize to be won</Text>
+              <Text style={styles.cardAmountLight}>₦5,000</Text>
+              <Text style={styles.cardSub}>Five Thousand Naira</Text>
+            </View>
+
+            <View style={styles.glassCardLight}>
+              <Text style={styles.cardLabel}>🎟 Ticket Prize</Text>
+              <Text style={styles.ticketTextDark}>
+                Buy{"\n"}Biggi Data Bundle{"\n"}5 Times In A Week
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Results Section */}
+        <View style={styles.resultSection}>
+          <Text style={styles.resultTitle}>🧾 Recent result</Text>
+
+          {/* Daily Pick */}
+          <View style={styles.dailyPickContainer}>
+            <Text style={styles.pickLabel}>Daily Pick</Text>
+            <View style={styles.pickNumbers}>
+              {[30, 2, 41, 39, 11].map((num, i) => (
+                <LinearGradient
+                  key={i}
+                  colors={["#FFB75E", "#FF7A00"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.numberBox}
+                >
+                  <Text style={styles.numberText}>{num}</Text>
+                </LinearGradient>
+              ))}
+            </View>
+            <Text style={styles.tryAgainText}>
+              Don’t quit, keep trying, you may be next winner
+            </Text>
+          </View>
+
+          {/* Weekly PI */}
+          <View style={styles.weeklyPrediction}>
+            <Text style={styles.pickLabel}>Weekly PI Prediction</Text>
+            <View style={styles.progressContainerLight}>
+              <View style={[styles.progressBarLight, { width: "60%" }]} />
+            </View>
+            <Text style={styles.weeklyText}>
+              Results will be out by Sunday - 07:30 PM
             </Text>
           </View>
         </View>
-
-        {/* ===== WEEKLY GAME SECTION ===== */}
-        <View style={styles.weeklyCard}>
-          <Text style={styles.weeklyTitle}>Weekly Premier League Prediction Game</Text>
-          <View style={styles.prizeRow}>
-            <View style={styles.prizeBoxLight}>
-              <Text style={styles.prizeLabel}>🎁 Prize to be won</Text>
-              <Text style={styles.prizeAmountLight}>₦5,000</Text>
-              <Text style={styles.prizeSub}>Five Thousand Naira</Text>
-            </View>
-
-            <View style={styles.prizeBoxLight}>
-              <Text style={styles.prizeLabel}>🎫 Ticket Prize</Text>
-              <Text style={styles.ticketInfoDark}>
-                Buy Biggi Data Bundle{"\n"}5 Times In A Week
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ===== RECENT RESULTS ===== */}
-        <View style={styles.resultCard}>
-          <Text style={styles.resultHeader}>
-            <FontAwesome5 name="history" size={16} /> Recent Result
-          </Text>
-
-          {/* Daily Pick */}
-          <View style={styles.resultSection}>
-            <Text style={styles.sectionTitle}>Daily Pick</Text>
-            <View style={styles.numbersRow}>
-              {[30, 2, 41, 39, 11].map((num) => (
-                <View key={num} style={styles.numberBox}>
-                  <Text style={styles.numberText}>{num}</Text>
-                </View>
-              ))}
-            </View>
-            {isDailyWinner ? (
-              <TouchableOpacity style={styles.claimBtnGreen}>
-                <Text style={styles.claimText}>Claim</Text>
-              </TouchableOpacity>
-            ) : (
-              <Text style={styles.noteText}>
-                Don’t quit, keep trying, you may be next winner
-              </Text>
-            )}
-          </View>
-
-          {/* Weekly Prediction */}
-          <View style={styles.resultSection}>
-            <Text style={styles.sectionTitle}>Weekly PL Prediction</Text>
-            {isWeeklyWinner ? (
-              <TouchableOpacity style={styles.claimBtnGreen}>
-                <Text style={styles.claimText}>Claim here</Text>
-              </TouchableOpacity>
-            ) : (
-              <>
-                <View style={styles.progressBar} />
-                <Text style={styles.noteText}>
-                  Results will be out by Sunday - 07:30 PM
-                </Text>
-              </>
-            )}
-          </View>
-        </View>
       </ScrollView>
-
-      {/* Bottom Navigation (mock) */}
-      <View style={styles.bottomNav}>
-        <Ionicons name="home" size={22} color="#fff" style={styles.activeIcon} />
-        <Ionicons name="ticket-outline" size={22} color="#000" />
-      </View>
     </View>
   );
 };
@@ -134,177 +152,178 @@ export default DailyLuckyDrawScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#000",
   },
-  headerCard: {
-    backgroundColor: "#F6851F",
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+  headerSection: {
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
     padding: 20,
-    marginBottom: 10,
   },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 10,
+    justifyContent: "space-between",
   },
   headerTitle: {
-    fontFamily: "Poppins-Bold",
-    fontSize: 20,
     color: "#fff",
-    marginLeft: 10,
-    flex: 1,
+    fontSize: 20,
+    fontWeight: "700",
   },
-  hotBadge: {
+  hotTag: {
     backgroundColor: "#fff",
-    paddingHorizontal: 10,
+    paddingVertical: 2,
+    paddingHorizontal: 8,
     borderRadius: 8,
   },
   hotText: {
-    color: "#F6851F",
-    fontSize: 12,
-    fontFamily: "Poppins-Medium",
+    color: "#FF5C00",
+    fontWeight: "600",
   },
-  prizeRow: {
+  cardRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 20,
+  },
+  glassCard: {
+    flex: 1,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: 16,
+    padding: 15,
+    marginHorizontal: 5,
+    backdropFilter: "blur(10px)",
+  },
+  cardLabel: {
+    color: "#fff",
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  cardAmount: {
+    color: "#fff",
+    fontSize: 24,
+    fontWeight: "800",
+  },
+  cardSub: {
+    color: "#fff",
+    fontSize: 12,
+    opacity: 0.8,
+  },
+  ticketText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+    lineHeight: 22,
+  },
+  progressContainer: {
+    height: 6,
+    backgroundColor: "rgba(255,255,255,0.3)",
+    borderRadius: 5,
+    marginTop: 20,
+    overflow: "hidden",
+  },
+  progressBar: {
+    height: 6,
+    backgroundColor: "#fff",
+    borderRadius: 5,
+  },
+  countdownText: {
+    color: "#fff",
+    textAlign: "center",
+    marginTop: 8,
+    fontSize: 12,
+  },
+  weeklySection: {
+    backgroundColor: "#f7f7f7",
+    padding: 15,
+    borderRadius: 20,
+    marginTop: 10,
+  },
+  weeklyRow: {
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  prizeBox: {
+  glassCardLight: {
     flex: 1,
-    backgroundColor: "#D87C26",
-    borderRadius: 12,
-    padding: 15,
-    margin: 5,
-  },
-  prizeBoxLight: {
-    flex: 1,
-    backgroundColor: "#f3f3f3",
-    borderRadius: 12,
-    padding: 15,
-    margin: 5,
-  },
-  prizeLabel: {
-    fontFamily: "Poppins-Medium",
-    color: "#fff",
-    fontSize: 12,
-  },
-  prizeAmount: {
-    fontFamily: "Poppins-Bold",
-    fontSize: 24,
-    color: "#fff",
-  },
-  prizeAmountLight: {
-    fontFamily: "Poppins-Bold",
-    fontSize: 24,
-    color: "#555",
-  },
-  prizeSub: {
-    fontFamily: "Poppins-Regular",
-    color: "#fff",
-    fontSize: 11,
-  },
-  ticketInfo: {
-    fontFamily: "Poppins-Bold",
-    color: "#fff",
-    fontSize: 16,
-  },
-  ticketInfoDark: {
-    fontFamily: "Poppins-Bold",
-    color: "#555",
-    fontSize: 16,
-  },
-  timerBar: {
-    marginTop: 10,
-    backgroundColor: "#000",
-    borderRadius: 10,
-    padding: 8,
-  },
-  timerText: {
-    color: "#fff",
-    textAlign: "center",
-    fontFamily: "Poppins-Regular",
-    fontSize: 12,
-  },
-  weeklyCard: {
     backgroundColor: "#fff",
-    marginHorizontal: 10,
-    borderRadius: 15,
-    padding: 10,
     elevation: 2,
-  },
-  weeklyTitle: {
-    fontFamily: "Poppins-Bold",
-    color: "#000",
-    marginBottom: 8,
-  },
-  resultCard: {
-    backgroundColor: "#fff",
-    margin: 10,
-    borderRadius: 15,
+    borderRadius: 16,
     padding: 15,
+    marginHorizontal: 5,
   },
-  resultHeader: {
-    fontFamily: "Poppins-Bold",
-    fontSize: 15,
-    marginBottom: 8,
+  cardAmountLight: {
+    color: "#000",
+    fontSize: 24,
+    fontWeight: "800",
+  },
+  ticketTextDark: {
+    color: "#000",
+    fontSize: 16,
+    fontWeight: "700",
+    lineHeight: 22,
   },
   resultSection: {
-    marginBottom: 20,
+    backgroundColor: "#fff",
+    padding: 15,
+    marginTop: 15,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
   },
-  sectionTitle: {
-    fontFamily: "Poppins-Medium",
-    color: "#000",
-    marginBottom: 5,
-  },
-  numbersRow: {
-    flexDirection: "row",
-    justifyContent: "center",
+  resultTitle: {
+    fontSize: 16,
+    fontWeight: "700",
     marginBottom: 10,
   },
+  dailyPickContainer: {
+    backgroundColor: "#fafafa",
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 15,
+  },
+  pickLabel: {
+    fontWeight: "600",
+    fontSize: 14,
+    marginBottom: 10,
+  },
+  pickNumbers: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginBottom: 8,
+  },
   numberBox: {
-    backgroundColor: "#F6851F",
-    padding: 8,
-    borderRadius: 5,
-    margin: 4,
+    width: 45,
+    height: 45,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
   },
   numberText: {
     color: "#fff",
-    fontFamily: "Poppins-Bold",
+    fontWeight: "700",
+    fontSize: 18,
   },
-  claimBtnGreen: {
-    backgroundColor: "#6FCF97",
-    paddingVertical: 8,
-    borderRadius: 6,
-    alignItems: "center",
-  },
-  claimText: {
-    fontFamily: "Poppins-Bold",
-    color: "#fff",
-  },
-  noteText: {
-    fontFamily: "Poppins-Regular",
-    color: "#777",
+  tryAgainText: {
     textAlign: "center",
+    color: "#666",
     fontSize: 12,
   },
-  progressBar: {
-    height: 5,
-    backgroundColor: "#ccc",
+  weeklyPrediction: {
+    backgroundColor: "#f8f8f8",
+    borderRadius: 16,
+    padding: 12,
+  },
+  progressContainerLight: {
+    height: 6,
+    backgroundColor: "#ddd",
     borderRadius: 5,
-    marginVertical: 5,
+    marginVertical: 10,
+    overflow: "hidden",
   },
-  bottomNav: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    backgroundColor: "#EAEAEA",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 10,
+  progressBarLight: {
+    height: 6,
+    backgroundColor: "#FF7A00",
   },
-  activeIcon: {
-    backgroundColor: "#F6851F",
-    padding: 8,
-    borderRadius: 20,
+  weeklyText: {
+    textAlign: "center",
+    color: "#555",
+    fontSize: 12,
   },
 });

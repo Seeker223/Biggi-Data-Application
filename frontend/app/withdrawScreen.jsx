@@ -9,6 +9,7 @@ import {
   FlatList 
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import FloatingBottomNav from "../components/FloatingBottomNav";
 
 const banks = [
   "Access Bank",
@@ -96,6 +97,7 @@ const WithdrawScreen = ({ navigation }) => {
                   </TouchableOpacity>
                 )}
               />
+              
             </View>
           )}
         </>
@@ -152,6 +154,7 @@ const WithdrawScreen = ({ navigation }) => {
           </View>
         </View>
       </Modal>
+    <FloatingBottomNav/>
     </View>
   );
 };
