@@ -111,7 +111,7 @@ export default function SignupScreen() {
             placeholder="DD / MM / YYYY"
             placeholderTextColor="#9CA3AF"
             value={form.birthDate}
-            onChangeText={(t) => setForm({ ...form, dob: t })}
+            onChangeText={(t) => setForm({ ...form, birthDate: t })}
             style={styles.textInput}
           />
         </View>
