@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Modal,
   Dimensions,
+  Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -14,12 +15,34 @@ const { width } = Dimensions.get("window");
 export default function DailyNumberDrawScreen() {
   const [selectedNumbers, setSelectedNumbers] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
+  const [toastVisible, setToastVisible] = useState(false);
+  const fadeAnim = useState(new Animated.Value(0))[0];
+
+  const showToast = () => {
+    if (toastVisible) return;
+    setToastVisible(true);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setTimeout(() => {
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }).start(() => setToastVisible(false));
+      }, 1500);
+    });
+  };
 
   const toggleNumber = (num) => {
     if (selectedNumbers.includes(num)) {
       setSelectedNumbers(selectedNumbers.filter((n) => n !== num));
     } else if (selectedNumbers.length < 5) {
       setSelectedNumbers([...selectedNumbers, num]);
+    } else {
+      showToast();
     }
   };
 
@@ -127,6 +150,15 @@ export default function DailyNumberDrawScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Warning Toast */}
+      {toastVisible && (
+        <Animated.View style={[styles.toast, { opacity: fadeAnim }]}>
+          <Text style={styles.toastText}>
+            You can’t select more than 5 numbers
+          </Text>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -254,4 +286,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   okText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  toast: {
+    position: "absolute",
+    bottom: 90,
+    alignSelf: "center",
+    backgroundColor: "#333",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+  },
+  toastText: { color: "#fff", fontSize: 13, fontWeight: "500" },
 });
