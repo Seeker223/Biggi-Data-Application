@@ -19,8 +19,8 @@ export default function SignupScreen() {
   const [form, setForm] = useState({
     username: "",
     email: "",
-    mobile: "",
-    dob: "",
+    phoneNumber: "",
+    birthDate: "",
     password: "",
     confirmPassword: "",
   });
@@ -30,9 +30,9 @@ export default function SignupScreen() {
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
-    const { username, email, password, confirmPassword } = form;
+    const { username, email, password, phoneNumber, birthDate, confirmPassword } = form;
 
-    if (!username || !email || !password || !confirmPassword) {
+    if (!username || !email || !password ||!phoneNumber ||!birthDate|| !confirmPassword) {
       return Alert.alert("Missing Fields", "Please fill all required fields.");
     }
     if (password !== confirmPassword) {
@@ -40,7 +40,7 @@ export default function SignupScreen() {
     }
 
     setLoading(true);
-    const res = await register(username, email, password);
+    const res = await register(username, email, password, phoneNumber, birthDate);
     setLoading(false);
 
     if (res.success) {
@@ -98,8 +98,8 @@ export default function SignupScreen() {
             placeholder="+123 456 789"
             placeholderTextColor="#9CA3AF"
             keyboardType="phone-pad"
-            value={form.mobile}
-            onChangeText={(t) => setForm({ ...form, mobile: t })}
+            value={form.phoneNumber}
+            onChangeText={(t) => setForm({ ...form, phoneNumber: t })}
             style={styles.textInput}
           />
         </View>
@@ -110,7 +110,7 @@ export default function SignupScreen() {
           <TextInput
             placeholder="DD / MM / YYYY"
             placeholderTextColor="#9CA3AF"
-            value={form.dob}
+            value={form.birthDate}
             onChangeText={(t) => setForm({ ...form, dob: t })}
             style={styles.textInput}
           />
