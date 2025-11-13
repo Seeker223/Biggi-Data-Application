@@ -9,7 +9,6 @@ export default function RootLayout() {
   useKeepAwake();
   return (
 
-
     <AuthProvider>
       <Stack screenOptions={{ headerShown: false }} />
     </AuthProvider>

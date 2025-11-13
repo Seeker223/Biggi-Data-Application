@@ -1,13 +1,20 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router"; // ✅ important
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+  StyleSheet,
+} from "react-native";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import api from "../../utils/api"; // your API base
+import api from "../../utils/api";
 import { Ionicons } from "@expo/vector-icons";
 
 export default function SecurityPinScreen() {
   const router = useRouter();
-  const { email } = useLocalSearchParams(); // ✅ replaces route.params.email
+  const { email } = useLocalSearchParams();
 
   const [pin, setPin] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
@@ -51,14 +58,13 @@ export default function SecurityPinScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-black">
-      <View className="flex-1 bg-gray-100 rounded-t-3xl items-center justify-center px-5">
-        <Text className="text-2xl font-bold mb-4 text-black">Security Pin</Text>
-        <Text className="text-center text-base font-semibold mb-6 text-black">
-          Enter Security Pin From Your Email
-        </Text>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <Text style={styles.header}>Security Pin</Text>
+        <Text style={styles.subHeader}>Enter Security Pin From Your Email</Text>
 
-        <View className="flex-row justify-center mb-6">
+        {/* PIN Input Boxes */}
+        <View style={styles.pinContainer}>
           {pin.map((digit, index) => (
             <TextInput
               key={index}
@@ -66,27 +72,29 @@ export default function SecurityPinScreen() {
               onChangeText={(text) => handleInputChange(text, index)}
               maxLength={1}
               keyboardType="numeric"
-              className="w-10 h-10 mx-2 border border-gray-400 text-center rounded-full text-lg bg-white"
+              style={styles.pinInput}
             />
           ))}
         </View>
 
+        {/* Verify Button */}
         <TouchableOpacity
           onPress={handleVerifyPin}
           disabled={loading}
-          className="bg-black rounded-full w-2/3 py-3 mb-4"
+          style={[styles.button, styles.primaryButton]}
         >
-          <Text className="text-white text-center font-semibold text-base">
+          <Text style={styles.primaryButtonText}>
             {loading ? "Verifying..." : "Accept"}
           </Text>
         </TouchableOpacity>
 
+        {/* Resend PIN Button */}
         <TouchableOpacity
           onPress={handleResendPin}
           disabled={loading}
-          className="bg-gray-200 rounded-full w-2/3 py-3 mb-8"
+          style={[styles.button, styles.secondaryButton]}
         >
-          <Text className="text-center text-black font-semibold text-base">
+          <Text style={styles.secondaryButtonText}>
             {loading ? "Sending..." : "Send Again"}
           </Text>
         </TouchableOpacity>
@@ -94,3 +102,71 @@ export default function SecurityPinScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#000",
+  },
+  container: {
+    flex: 1,
+    backgroundColor: "#F3F4F6",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+  },
+  header: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#111",
+    marginBottom: 8,
+  },
+  subHeader: {
+    textAlign: "center",
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#111",
+    marginBottom: 24,
+  },
+  pinContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 24,
+  },
+  pinInput: {
+    width: 45,
+    height: 45,
+    marginHorizontal: 6,
+    borderWidth: 1,
+    borderColor: "#9CA3AF",
+    borderRadius: 50,
+    textAlign: "center",
+    fontSize: 18,
+    backgroundColor: "#fff",
+  },
+  button: {
+    width: "70%",
+    borderRadius: 50,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  primaryButton: {
+    backgroundColor: "#000",
+  },
+  primaryButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  secondaryButton: {
+    backgroundColor: "#E5E7EB",
+  },
+  secondaryButtonText: {
+    color: "#000",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+});

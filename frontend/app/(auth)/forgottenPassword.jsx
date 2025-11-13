@@ -1,5 +1,13 @@
 import React, { useState, useContext } from "react";
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
+  StyleSheet,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { AuthContext } from "../../context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
@@ -31,34 +39,29 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <ScrollView
-      contentContainerStyle={{ flexGrow: 1 }}
-      showsVerticalScrollIndicator={false}
-      className="bg-white"
-    >
+    <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
       {/* Header */}
-      <View className="bg-black rounded-b-[10%] pb-8 pt-16 items-center justify-center">
-        <Text className="text-white text-2xl font-bold">Forgot Password</Text>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Forgot Password</Text>
       </View>
 
       {/* Content */}
-      <View className="flex-1 items-center justify-center px-6 pt-8 pb-12">
-        {/* Reset Info */}
-        <Text className="text-xl font-bold text-black mb-2">Reset Password?</Text>
-        <Text className="text-center text-gray-600 mb-6 leading-relaxed">
+      <View style={styles.content}>
+        <Text style={styles.title}>Reset Password?</Text>
+        <Text style={styles.subtitle}>
           Enter your registered email address below and we'll send you a link to reset your password.
         </Text>
 
         {/* Email Input */}
-        <View className="w-full mb-4">
-          <Text className="text-gray-700 font-semibold mb-1">Enter Email Address</Text>
+        <View style={styles.inputContainer}>
+          <Text style={styles.inputLabel}>Enter Email Address</Text>
           <TextInput
+            style={styles.input}
             placeholder="example@example.com"
             placeholderTextColor="#9CA3AF"
             keyboardType="email-address"
             value={email}
             onChangeText={setEmail}
-            className="w-full bg-gray-200 rounded-full px-4 py-3 text-base text-gray-900"
           />
         </View>
 
@@ -66,40 +69,147 @@ export default function ForgotPasswordScreen() {
         <TouchableOpacity
           disabled={loading}
           onPress={handleNextStep}
-          className="bg-black w-5/6 rounded-full py-3 mt-4 items-center"
+          style={[styles.button, styles.primaryButton]}
         >
-          <Text className="text-white font-semibold text-base">
-            {loading ? "Sending..." : "Next Step"}
-          </Text>
+          <Text style={styles.buttonText}>{loading ? "Sending..." : "Next Step"}</Text>
         </TouchableOpacity>
 
         {/* Sign Up Button */}
         <TouchableOpacity
           onPress={() => router.push("/(auth)/signup")}
-          className="bg-gray-200 w-5/6 rounded-full py-3 mt-6 items-center"
+          style={[styles.button, styles.secondaryButton]}
         >
-          <Text className="text-black font-semibold text-base">Sign Up</Text>
+          <Text style={styles.secondaryButtonText}>Sign Up</Text>
         </TouchableOpacity>
 
         {/* Social Auth */}
-        <Text className="text-gray-500 text-sm mt-8 mb-4">or sign up with</Text>
-        <View className="flex-row space-x-6">
-          <TouchableOpacity className="border border-gray-400 rounded-full p-3">
+        <Text style={styles.orText}>or sign up with</Text>
+        <View style={styles.socialContainer}>
+          <TouchableOpacity style={styles.socialButton}>
             <Ionicons name="logo-facebook" size={20} color="#000" />
           </TouchableOpacity>
-          <TouchableOpacity className="border border-gray-400 rounded-full p-3">
+          <TouchableOpacity style={styles.socialButton}>
             <Ionicons name="logo-google" size={20} color="#000" />
           </TouchableOpacity>
         </View>
 
         {/* Footer */}
-        <View className="flex-row mt-8">
-          <Text className="text-gray-600 text-sm">Don’t have an account? </Text>
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Don’t have an account? </Text>
           <TouchableOpacity onPress={() => router.push("/(auth)/signup")}>
-            <Text className="text-orange-500 text-sm font-semibold">Sign Up</Text>
+            <Text style={styles.footerLink}>Sign Up</Text>
           </TouchableOpacity>
         </View>
       </View>
     </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  scrollContainer: {
+    flexGrow: 1,
+    backgroundColor: "#fff",
+  },
+  header: {
+    backgroundColor: "#000",
+    borderBottomLeftRadius: 50,
+    borderBottomRightRadius: 50,
+    paddingVertical: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerTitle: {
+    color: "#fff",
+    fontSize: 24,
+    fontWeight: "bold",
+  },
+  content: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 30,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#000",
+    marginBottom: 8,
+  },
+  subtitle: {
+    textAlign: "center",
+    color: "#6B7280",
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  inputContainer: {
+    width: "100%",
+    marginBottom: 16,
+  },
+  inputLabel: {
+    color: "#374151",
+    fontWeight: "600",
+    marginBottom: 6,
+  },
+  input: {
+    width: "100%",
+    backgroundColor: "#E5E7EB",
+    borderRadius: 50,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: "#111827",
+  },
+  button: {
+    width: "85%",
+    borderRadius: 50,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 12,
+  },
+  primaryButton: {
+    backgroundColor: "#000",
+  },
+  secondaryButton: {
+    backgroundColor: "#E5E7EB",
+  },
+  buttonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  secondaryButtonText: {
+    color: "#000",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  orText: {
+    color: "#6B7280",
+    fontSize: 13,
+    marginTop: 24,
+    marginBottom: 12,
+  },
+  socialContainer: {
+    flexDirection: "row",
+    gap: 20,
+  },
+  socialButton: {
+    borderWidth: 1,
+    borderColor: "#9CA3AF",
+    borderRadius: 50,
+    padding: 10,
+  },
+  footer: {
+    flexDirection: "row",
+    marginTop: 24,
+  },
+  footerText: {
+    color: "#6B7280",
+    fontSize: 13,
+  },
+  footerLink: {
+    color: "#F97316",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+});

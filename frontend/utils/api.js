@@ -9,9 +9,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // ⚙️ Create an Axios instance
 
-const BASE_URL ="https://biggi-data-reactnative-mern.onrender.com"
+// const BASE_URL ="https://biggi-data-reactnative-mern.onrender.com"
 const api = axios.create({
-  baseURL: `${BASE_URL}/api/v1`,
+  baseURL: `${process.env.EXPO_PUBLIC_BASE_URL}/api/v1`,
   headers: {
     "Content-Type": "application/json",
   },

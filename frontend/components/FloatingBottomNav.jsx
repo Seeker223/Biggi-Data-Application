@@ -20,7 +20,7 @@ const FloatingBottomNav = () => {
        <TouchableOpacity onPress={() => 
        index === 0 ? navigation.navigate("(tabs)/homeScreen") : 
        index === 1 ? navigation.navigate("(tabs)/DailyLuckyDrawScreen") : 
-       index === 2 ? navigation.navigate("screens/GameWinnersScreen") :
+       index === 2 ? navigation.navigate("withdrawScreen") :
         navigation.navigate("screens/ProfileScreen") } > 
         <Ionicons name={icon} size={28} color={index === 0 ? "#FF7A00" : "#000"} /> 
         </TouchableOpacity> 
