@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+// frontend/app/(tabs)/homeScreen.jsx
+
+import React, { useContext } from "react";
 import {
   View,
   Text,
@@ -9,21 +11,25 @@ import {
   Dimensions,
   Platform,
 } from "react-native";
+
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { MotiView, MotiText } from "moti";
-import { useRouter } from "expo-router"; // ✅ for navigation
 import { useNavigation } from "@react-navigation/native";
-import FloatingBottomNav from "../../components/FloatingBottomNav";
 
+import FloatingBottomNav from "../../components/FloatingBottomNav";
+import { AuthContext } from "../../context/AuthContext";
 
 const { width } = Dimensions.get("window");
 
 const HomeScreen = () => {
- const navigation = useNavigation();  // ✅ router hook
+  const navigation = useNavigation();
 
-  const [mainBalance, setMainBalance] = useState(200);
-  const [rewardBalance, setRewardBalance] = useState(50000);
+  const { user } = useContext(AuthContext);
+
+  // ⭐ BALANCES FROM DATABASE
+  const mainBalance = user?.mainBalance || 0;
+  const rewardBalance = user?.rewardBalance || 0;
 
   const goToDeposit = () => navigation.navigate("depositScreen");
   const goToWithdraw = () => navigation.navigate("withdrawScreen");
@@ -42,15 +48,16 @@ const HomeScreen = () => {
       >
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.userInfo} >
+          <View style={styles.userInfo}>
             <Image
               source={{
-                uri: "https://i.pravatar.cc/150?img=32",
-              }
-            }
+                uri: user?.photo
+                  ? user.photo
+                  : "https://i.pravatar.cc/150?img=32",
+              }}
               style={styles.avatar}
-              
             />
+
             <View>
               <MotiText
                 from={{ opacity: 0, translateY: -10 }}
@@ -58,13 +65,16 @@ const HomeScreen = () => {
                 transition={{ type: "timing", duration: 600 }}
                 style={styles.welcomeText}
               >
-                Hi, User
+                Hi, {user?.username || "User"}
               </MotiText>
-              <Text style={styles.subText}  onPress={goToProfile}>Welcome back</Text>
+
+              <Text style={styles.subText} onPress={goToProfile}>
+                Welcome back
+              </Text>
             </View>
           </View>
 
-          {/* Animated Notification */}
+          {/* Notification */}
           <TouchableOpacity style={styles.bellBtn} onPress={goToNotification}>
             <MotiView
               from={{ scale: 1 }}
@@ -90,21 +100,15 @@ const HomeScreen = () => {
           <View style={styles.balanceRow}>
             <View>
               <Text style={styles.label}>Main Balance</Text>
-              <Text style={styles.balance}>
-                ₦{mainBalance.toLocaleString()}
-              </Text>
+              <Text style={styles.balance}>₦{mainBalance.toLocaleString()}</Text>
             </View>
+
             <View>
-              <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={goToDeposit}
-              >
+              <TouchableOpacity style={styles.actionBtn} onPress={goToDeposit}>
                 <Text style={styles.actionText}>Deposit</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={goToWithdraw}
-              >
+
+              <TouchableOpacity style={styles.actionBtn} onPress={goToWithdraw}>
                 <Text style={styles.actionText}>Withdraw</Text>
               </TouchableOpacity>
             </View>
@@ -119,10 +123,8 @@ const HomeScreen = () => {
                 ₦{rewardBalance.toLocaleString()}
               </Text>
             </View>
-            <TouchableOpacity
-              style={styles.redeemBtn}
-              onPress={goToRedeem}
-            >
+
+            <TouchableOpacity style={styles.redeemBtn} onPress={goToRedeem}>
               <Text style={styles.actionText}>Redeem</Text>
             </TouchableOpacity>
           </View>
@@ -132,7 +134,7 @@ const HomeScreen = () => {
           ✅ Buy Any Bundle → Unlock Daily & {"\n"} Weekly Games + Monthly Draw
         </Text>
 
-        {/* White Curved Section */}
+        {/* Games + Bundle Section */}
         <View style={styles.whiteWrapper}>
           <LinearGradient
             colors={["#ffffff", "#f7f7f7"]}
@@ -157,11 +159,10 @@ const HomeScreen = () => {
                 >
                   <Ionicons name="wifi-outline" size={28} color="#FF7A00" />
                 </MotiView>
+
                 <Text style={styles.bundleTitle}>Buy Data Bundle Daily</Text>
-                <TouchableOpacity
-                  style={styles.smallBtn}
-                  onPress={goToBundle}
-                >
+
+                <TouchableOpacity style={styles.smallBtn} onPress={goToBundle}>
                   <Text style={styles.smallBtnText}>Buy Now</Text>
                 </TouchableOpacity>
               </View>
@@ -171,7 +172,15 @@ const HomeScreen = () => {
               <View style={styles.bundleRight}>
                 <MotiView
                   from={{ rotate: "0deg" }}
-                  animate={{ rotate: ["0deg", "15deg", "0deg", "-15deg", "0deg"] }}
+                  animate={{
+                    rotate: [
+                      "0deg",
+                      "15deg",
+                      "0deg",
+                      "-15deg",
+                      "0deg",
+                    ],
+                  }}
                   transition={{
                     loop: true,
                     type: "timing",
@@ -180,6 +189,7 @@ const HomeScreen = () => {
                 >
                   <Ionicons name="ticket-outline" size={26} color="#000" />
                 </MotiView>
+
                 <Text style={styles.bundleDesc}>
                   Win Daily Tickets + One-Time Weekly Ticket To Participate In
                   Our Reward Games
@@ -187,7 +197,7 @@ const HomeScreen = () => {
               </View>
             </MotiView>
 
-            {/* Game Cards */}
+            {/* Daily Game */}
             <MotiView
               from={{ scale: 0.9 }}
               animate={{ scale: [0.9, 1, 0.9] }}
@@ -199,17 +209,17 @@ const HomeScreen = () => {
               style={styles.gameCard}
             >
               <Ionicons name="game-controller" size={28} color="#fff" />
-              <Text style={styles.gameTitle}>
-                Daily Number Picker Reward Game
-              </Text>
+              <Text style={styles.gameTitle}>Daily Number Picker Reward Game</Text>
+
               <TouchableOpacity
                 style={styles.playBtn}
-                onPress={() => router.push("/dailyGameScreen")}
+                onPress={goToDailyGame}
               >
                 <Text style={styles.playText}>Play Now</Text>
               </TouchableOpacity>
             </MotiView>
 
+            {/* Weekly Game */}
             <MotiView
               from={{ scale: 0.9 }}
               animate={{ scale: [0.9, 1, 0.9] }}
@@ -222,12 +232,11 @@ const HomeScreen = () => {
               style={styles.gameCard}
             >
               <Ionicons name="football-outline" size={28} color="#fff" />
-              <Text style={styles.gameTitle}>
-                Weekly Premier League Predict and Win Reward Game
-              </Text>
+              <Text style={styles.gameTitle}>Weekly Top Buyers Reward Game</Text>
+
               <TouchableOpacity
                 style={styles.playBtn}
-                onPress={() => router.push("/weeklyGameScreen")}
+                onPress={goToWeeklyDraw}
               >
                 <Text style={styles.playText}>Play Now</Text>
               </TouchableOpacity>
@@ -236,8 +245,8 @@ const HomeScreen = () => {
         </View>
       </ScrollView>
 
-      {/* Animated Floating Bottom Navigation */}
-      <FloatingBottomNav/>
+      {/* Bottom Navigation */}
+      <FloatingBottomNav />
     </View>
   );
 };
@@ -312,7 +321,12 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 40,
     overflow: "hidden",
   },
-  whiteSection: { paddingTop: 25, paddingHorizontal: 16, flex: 1, minHeight: 500 },
+  whiteSection: {
+    paddingTop: 25,
+    paddingHorizontal: 16,
+    flex: 1,
+    minHeight: 500,
+  },
   bundleCard: {
     backgroundColor: "#fff",
     borderRadius: 20,
@@ -364,24 +378,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   playText: { color: "#fff", fontWeight: "700" },
-  bottomNavWrapper: {
-    position: "absolute",
-    bottom: Platform.OS === "android" ? 25 : 35,
-    width: "100%",
-    alignItems: "center",
-  },
-  bottomNav: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 40,
-    paddingVertical: 12,
-    width: "88%",
-    shadowColor: "#FF7A00",
-    shadowOpacity: 0.4,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
-    elevation: 15,
-  },
 });

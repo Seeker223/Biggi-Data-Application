@@ -5,6 +5,7 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
+  Modal,
   StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -20,13 +21,32 @@ export default function LoginScreen() {
   const [secure, setSecure] = useState(true);
   const [loading, setLoading] = useState(false);
 
+  // Modal states
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalMessage, setModalMessage] = useState("");
+  const [modalType, setModalType] = useState("error"); // 'success' | 'error'
+
+  const showModal = (message, type = "error") => {
+    setModalMessage(message);
+    setModalType(type);
+    setModalVisible(true);
+  };
+
   const handleLogin = async () => {
-    if (!email || !password) return alert("Please enter your credentials.");
+    if (!email || !password) return showModal("Please enter your credentials.");
     setLoading(true);
     const res = await login(email, password);
     setLoading(false);
-    if (res.success) router.replace("/(tabs)/homeScreen");
-    else alert(res.error || "Login failed");
+
+    if (res.success) {
+      showModal("Login successful!", "success");
+      setTimeout(() => {
+        setModalVisible(false);
+        router.replace("/(tabs)/homeScreen");
+      }, 1200);
+    } else {
+      showModal(res.error || "Login failed ");
+    }
   };
 
   return (
@@ -39,11 +59,10 @@ export default function LoginScreen() {
         <Text style={styles.headerText}>Welcome</Text>
       </View>
 
-      {/* Form Section */}
+      {/* Form */}
       <View style={styles.formContainer}>
-        {/* Email Input */}
         <View style={styles.inputWrapper}>
-          <Text style={styles.label}>Username Or Email</Text>
+          <Text style={styles.label}>Username or Email</Text>
           <TextInput
             placeholder="example@example.com"
             placeholderTextColor="#9CA3AF"
@@ -53,7 +72,6 @@ export default function LoginScreen() {
           />
         </View>
 
-        {/* Password Input */}
         <View style={styles.inputWrapper}>
           <Text style={styles.label}>Password</Text>
           <View style={styles.passwordContainer}>
@@ -75,7 +93,6 @@ export default function LoginScreen() {
           </View>
         </View>
 
-        {/* Login Button */}
         <TouchableOpacity
           disabled={loading}
           onPress={handleLogin}
@@ -86,7 +103,6 @@ export default function LoginScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* Forgot Password */}
         <TouchableOpacity
           onPress={() => router.push("/(auth)/forgottenPassword")}
           style={styles.forgotButton}
@@ -94,7 +110,6 @@ export default function LoginScreen() {
           <Text style={styles.forgotText}>Forgot Password?</Text>
         </TouchableOpacity>
 
-        {/* Sign Up Button */}
         <TouchableOpacity
           onPress={() => router.push("/(auth)/signup")}
           style={styles.signupButton}
@@ -102,13 +117,10 @@ export default function LoginScreen() {
           <Text style={styles.signupButtonText}>Sign Up</Text>
         </TouchableOpacity>
 
-        {/* Fingerprint Access */}
         <Text style={styles.fingerprintText}>
-          Use <Text style={styles.fingerprintHighlight}>Fingerprint</Text> To
-          Access
+          Use <Text style={styles.fingerprintHighlight}>Fingerprint</Text> To Access
         </Text>
 
-        {/* Social Login */}
         <Text style={styles.socialText}>or sign up with</Text>
         <View style={styles.socialRow}>
           <TouchableOpacity style={styles.socialIcon}>
@@ -119,7 +131,6 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Footer */}
         <View style={styles.footerRow}>
           <Text style={styles.footerText}>Don’t have an account? </Text>
           <TouchableOpacity onPress={() => router.push("/(auth)/signup")}>
@@ -127,6 +138,33 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* ✅ Modal Component */}
+      <Modal transparent animationType="fade" visible={modalVisible}>
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContainer,
+              modalType === "success"
+                ? styles.modalSuccess
+                : styles.modalError,
+            ]}
+          >
+            <Ionicons
+              name={modalType === "success" ? "checkmark-circle" : "alert-circle"}
+              size={40}
+              color={modalType === "success" ? "#16A34A" : "#DC2626"}
+            />
+            <Text style={styles.modalText}>{modalMessage}</Text>
+            <TouchableOpacity
+              onPress={() => setModalVisible(false)}
+              style={styles.modalButton}
+            >
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -138,16 +176,14 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   scrollContainer: {
     flexGrow: 1,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#fff",
   },
   headerContainer: {
-    backgroundColor: "#000000",
-    borderBottomLeftRadius: "10%",
-    borderBottomRightRadius: "10%",
-    paddingBottom: 32,
-    paddingTop: 64,
+    backgroundColor: "#000",
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    paddingVertical: 50,
     alignItems: "center",
-    justifyContent: "center",
   },
   headerText: {
     color: "#FF8000",
@@ -155,9 +191,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   formContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
     paddingHorizontal: 24,
     paddingTop: 32,
   },
@@ -171,7 +204,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   textInput: {
-    width: "100%",
     backgroundColor: "#E5E7EB",
     borderRadius: 50,
     paddingHorizontal: 16,
@@ -197,21 +229,17 @@ const styles = StyleSheet.create({
     width: "83%",
     borderRadius: 50,
     paddingVertical: 12,
-    marginTop: 16,
     alignItems: "center",
+    alignSelf: "center",
+    marginTop: 16,
   },
   loginButtonText: {
     color: "#fff",
     fontWeight: "600",
     fontSize: 16,
   },
-  forgotButton: {
-    marginTop: 12,
-  },
-  forgotText: {
-    color: "#6B7280",
-    fontWeight: "500",
-  },
+  forgotButton: { marginTop: 12, alignItems: "center" },
+  forgotText: { color: "#6B7280", fontWeight: "500" },
   signupButton: {
     backgroundColor: "#E5E7EB",
     width: "83%",
@@ -219,29 +247,24 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     marginTop: 16,
     alignItems: "center",
+    alignSelf: "center",
   },
-  signupButtonText: {
-    color: "#111827",
-    fontWeight: "600",
-    fontSize: 16,
-  },
+  signupButtonText: { color: "#111827", fontWeight: "600", fontSize: 16 },
   fingerprintText: {
     marginTop: 24,
     color: "#4B5563",
-    fontSize: 14,
+    textAlign: "center",
   },
-  fingerprintHighlight: {
-    color: "#FF8000",
-    fontWeight: "600",
-  },
+  fingerprintHighlight: { color: "#FF8000", fontWeight: "600" },
   socialText: {
     marginTop: 16,
     color: "#6B7280",
-    fontSize: 14,
+    textAlign: "center",
   },
   socialRow: {
     flexDirection: "row",
     marginTop: 12,
+    justifyContent: "center",
     gap: 24,
   },
   socialIcon: {
@@ -253,142 +276,39 @@ const styles = StyleSheet.create({
   footerRow: {
     flexDirection: "row",
     marginTop: 24,
+    justifyContent: "center",
   },
-  footerText: {
-    color: "#4B5563",
-    fontSize: 14,
+  footerText: { color: "#4B5563" },
+  footerLink: { color: "#FF8000", fontWeight: "600" },
+
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  footerLink: {
-    color: "#FF8000",
-    fontWeight: "600",
-    fontSize: 14,
+  modalContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 24,
+    width: "80%",
+    alignItems: "center",
+    elevation: 10,
   },
+  modalText: {
+    fontSize: 16,
+    color: "#111827",
+    marginVertical: 12,
+    textAlign: "center",
+  },
+  modalButton: {
+    backgroundColor: "#FF8000",
+    borderRadius: 50,
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+  },
+  modalButtonText: { color: "#fff", fontWeight: "bold" },
+  modalSuccess: { borderLeftWidth: 5, borderLeftColor: "#16A34A" },
+  modalError: { borderLeftWidth: 5, borderLeftColor: "#DC2626" },
 });
-
-// import React, { useState, useContext } from "react";
-// import { View, Text, TextInput, TouchableOpacity, ScrollView } from "react-native";
-// import { useRouter } from "expo-router";
-// import { AuthContext } from "../../context/AuthContext";
-// import { Ionicons } from "@expo/vector-icons";
-
-// export default function LoginScreen() {
-//   const { login } = useContext(AuthContext);
-//   const router = useRouter();
-
-//   const [email, setEmail] = useState("");
-//   const [password, setPassword] = useState("");
-//   const [secure, setSecure] = useState(true);
-//   const [loading, setLoading] = useState(false);
-
-//   const handleLogin = async () => {
-//     if (!email || !password) return alert("Please enter your credentials.");
-//     setLoading(true);
-//     const res = await login(email, password);
-//     setLoading(false);
-//     if (res.success) router.replace("/(tabs)/homeScreen"); // Redirect after success
-//     else alert(res.error || "Login failed");
-//   };
-
-//   return (
-//     <ScrollView
-//       contentContainerStyle={{ flexGrow: 1 }}
-//       showsVerticalScrollIndicator={false}
-//       className="bg-white"
-//     >
-//       {/* Top Header */}
-//       <View className="bg-black rounded-b-[10%] pb-8 pt-16 items-center justify-center">
-//         <Text className="text-orange-500 text-2xl font-bold">Welcome</Text>
-//       </View>
-
-//       {/* Form */}
-//       <View className="flex-1 items-center justify-center px-6 pt-8">
-//         {/* Username or Email */}
-//         <View className="w-full mb-4">
-//           <Text className="text-gray-700 font-semibold mb-1">
-//             Username Or Email
-//           </Text>
-//           <TextInput
-//             placeholder="example@example.com"
-//             placeholderTextColor="#9CA3AF"
-//             value={email}
-//             onChangeText={setEmail}
-//             className="w-full bg-gray-200 rounded-full px-4 py-3 text-base text-gray-900"
-//           />
-//         </View>
-
-//         {/* Password */}
-//         <View className="w-full mb-4 relative">
-//           <Text className="text-gray-700 font-semibold mb-1">Password</Text>
-//           <View className="flex-row items-center bg-gray-200 rounded-full px-4">
-//             <TextInput
-//               placeholder="••••••••"
-//               placeholderTextColor="#9CA3AF"
-//               secureTextEntry={secure}
-//               value={password}
-//               onChangeText={setPassword}
-//               className="flex-1 py-3 text-base text-gray-900"
-//             />
-//             <TouchableOpacity onPress={() => setSecure(!secure)}>
-//               <Ionicons
-//                 name={secure ? "eye-off-outline" : "eye-outline"}
-//                 size={20}
-//                 color="#475569"
-//               />
-//             </TouchableOpacity>
-//           </View>
-//         </View>
-
-//         {/* Buttons */}
-//         <TouchableOpacity
-//           disabled={loading}
-//           onPress={handleLogin}
-//           className="bg-black w-5/6 rounded-full py-3 mt-4 items-center"
-//         >
-//           <Text className="text-white font-semibold text-base">
-//             {loading ? "Logging In..." : "Log In"}
-//           </Text>
-//         </TouchableOpacity>
-
-//         <TouchableOpacity
-//           onPress={() => router.push("/(auth)/forgottenPassword")}
-//           className="mt-3"
-//         >
-//           <Text className="text-gray-500 font-medium">Forgot Password?</Text>
-//         </TouchableOpacity>
-
-//         <TouchableOpacity
-//           onPress={() => router.push("/(auth)/signup")}
-//           className="bg-gray-200 w-5/6 rounded-full py-3 mt-4 items-center"
-//         >
-//           <Text className="text-gray-900 font-semibold text-base">Sign Up</Text>
-//         </TouchableOpacity>
-
-//         {/* Fingerprint */}
-//         <Text className="mt-6 text-gray-600 text-sm">
-//           Use <Text className="text-orange-500 font-semibold">Fingerprint</Text> To Access
-//         </Text>
-
-//         {/* Social Login */}
-//         <Text className="mt-4 text-gray-500 text-sm">or sign up with</Text>
-//         <View className="flex-row mt-3 space-x-6">
-//           <TouchableOpacity className="p-2 border border-gray-300 rounded-full">
-//             <Ionicons name="logo-facebook" size={22} color="#1877F2" />
-//           </TouchableOpacity>
-//           <TouchableOpacity className="p-2 border border-gray-300 rounded-full">
-//             <Ionicons name="logo-google" size={22} color="#DB4437" />
-//           </TouchableOpacity>
-//         </View>
-
-//         {/* Footer */}
-//         <View className="flex-row mt-6">
-//           <Text className="text-gray-600 text-sm">
-//             Don’t have an account?{" "}
-//           </Text>
-//           <TouchableOpacity onPress={() => router.push("/(auth)/signup")}>
-//             <Text className="text-orange-500 text-sm font-semibold">Sign Up</Text>
-//           </TouchableOpacity>
-//         </View>
-//       </View>
-//     </ScrollView>
-//   );
-// }

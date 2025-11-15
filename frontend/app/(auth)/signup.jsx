@@ -5,8 +5,8 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
   StyleSheet,
+  Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -29,14 +29,26 @@ export default function SignupScreen() {
   const [confirmSecure, setConfirmSecure] = useState(true);
   const [loading, setLoading] = useState(false);
 
+  // Modal states
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalType, setModalType] = useState("success"); // "success" | "error"
+  const [modalMessage, setModalMessage] = useState("");
+
   const handleRegister = async () => {
     const { username, email, password, phoneNumber, birthDate, confirmPassword } = form;
 
     if (!username || !email || !password || !confirmPassword) {
-      return Alert.alert("Missing Fields", "Please fill all required fields.");
+      setModalType("error");
+      setModalMessage("Please fill all required fields.");
+      setModalVisible(true);
+      return;
     }
+
     if (password !== confirmPassword) {
-      return Alert.alert("Password Mismatch", "Passwords do not match.");
+      setModalType("error");
+      setModalMessage("Passwords do not match.");
+      setModalVisible(true);
+      return;
     }
 
     setLoading(true);
@@ -44,126 +56,186 @@ export default function SignupScreen() {
     setLoading(false);
 
     if (res.success) {
-      Alert.alert(
-        "Registration Successful 🎉",
-        "A confirmation email has been sent to your inbox.",
-        [{ text: "OK", onPress: () => router.replace("/(auth)/login") }]
-      );
+      setModalType("success");
+      setModalMessage("Registration successful! A confirmation email has been sent.");
+      setModalVisible(true);
     } else {
-      Alert.alert("Registration Failed", res.error || "Please try again.");
+      setModalType("error");
+      setModalMessage(res.error || "Registration failed. Please try again.");
+      setModalVisible(true);
+    }
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+    if (modalType === "success") {
+      router.replace("/(auth)/login");
     }
   };
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.scrollContainer}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Header */}
-      <View style={styles.headerContainer}>
-        <Text style={styles.headerText}>Create Account</Text>
-      </View>
-
-      {/* Form Section */}
-      <View style={styles.formContainer}>
-        {/* Full Name */}
-        <View style={styles.inputWrapper}>
-          <Text style={styles.label}>Full Name</Text>
-          <TextInput
-            placeholder="John Doe"
-            placeholderTextColor="#9CA3AF"
-            value={form.username}
-            onChangeText={(t) => setForm({ ...form, username: t })}
-            style={styles.textInput}
-          />
+    <>
+      {/* Main Signup UI */}
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.headerContainer}>
+          <Text style={styles.headerText}>Create Account</Text>
         </View>
 
-        {/* Email */}
-        <View style={styles.inputWrapper}>
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            placeholder="example@example.com"
-            placeholderTextColor="#9CA3AF"
-            keyboardType="email-address"
-            value={form.email}
-            onChangeText={(t) => setForm({ ...form, email: t })}
-            style={styles.textInput}
-          />
-        </View>
-
-       
-
-        {/* Password */}
-        <View style={styles.inputWrapper}>
-          <Text style={styles.label}>Password</Text>
-          <View style={styles.passwordContainer}>
+        {/* Form */}
+        <View style={styles.formContainer}>
+          {/* Full Name */}
+          <View style={styles.inputWrapper}>
+            <Text style={styles.label}>Full Name</Text>
             <TextInput
-              placeholder="••••••••"
+              placeholder="John Doe"
               placeholderTextColor="#9CA3AF"
-              secureTextEntry={secure}
-              value={form.password}
-              onChangeText={(t) => setForm({ ...form, password: t })}
-              style={styles.passwordInput}
+              value={form.username}
+              onChangeText={(t) => setForm({ ...form, username: t })}
+              style={styles.textInput}
             />
-            <TouchableOpacity onPress={() => setSecure(!secure)}>
-              <Ionicons
-                name={secure ? "eye-off-outline" : "eye-outline"}
-                size={20}
-                color="#475569"
-              />
-            </TouchableOpacity>
           </View>
-        </View>
 
-        {/* Confirm Password */}
-        <View style={styles.inputWrapper}>
-          <Text style={styles.label}>Confirm Password</Text>
-          <View style={styles.passwordContainer}>
+          {/* Email */}
+          <View style={styles.inputWrapper}>
+            <Text style={styles.label}>Email</Text>
             <TextInput
-              placeholder="••••••••"
+              placeholder="example@example.com"
               placeholderTextColor="#9CA3AF"
-              secureTextEntry={confirmSecure}
-              value={form.confirmPassword}
-              onChangeText={(t) => setForm({ ...form, confirmPassword: t })}
-              style={styles.passwordInput}
+              keyboardType="email-address"
+              value={form.email}
+              onChangeText={(t) => setForm({ ...form, email: t })}
+              style={styles.textInput}
             />
-            <TouchableOpacity onPress={() => setConfirmSecure(!confirmSecure)}>
-              <Ionicons
-                name={confirmSecure ? "eye-off-outline" : "eye-outline"}
-                size={20}
-                color="#475569"
-              />
-            </TouchableOpacity>
           </View>
-        </View>
 
-        {/* Terms */}
-        <Text style={styles.termsText}>
-          By continuing, you agree to{" "}
-          <Text style={styles.termsHighlight}>Terms of Use</Text> and{" "}
-          <Text style={styles.termsHighlight}>Privacy Policy</Text>.
-        </Text>
+          {/* Phone Number */}
+          <View style={styles.inputWrapper}>
+            <Text style={styles.label}>Phone Number</Text>
+            <TextInput
+              placeholder="+234..."
+              placeholderTextColor="#9CA3AF"
+              keyboardType="phone-pad"
+              value={form.phoneNumber}
+              onChangeText={(t) => setForm({ ...form, phoneNumber: t })}
+              style={styles.textInput}
+            />
+          </View>
 
-        {/* Sign Up Button */}
-        <TouchableOpacity
-          disabled={loading}
-          onPress={handleRegister}
-          style={[styles.signupButton, loading && { opacity: 0.6 }]}
-        >
-          <Text style={styles.signupButtonText}>
-            {loading ? "Signing Up..." : "Sign Up"}
+          {/* Birth Date */}
+          <View style={styles.inputWrapper}>
+            <Text style={styles.label}>Date of Birth</Text>
+            <TextInput
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor="#9CA3AF"
+              value={form.birthDate}
+              onChangeText={(t) => setForm({ ...form, birthDate: t })}
+              style={styles.textInput}
+            />
+          </View>
+
+          {/* Password */}
+          <View style={styles.inputWrapper}>
+            <Text style={styles.label}>Password</Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                placeholder="••••••••"
+                placeholderTextColor="#9CA3AF"
+                secureTextEntry={secure}
+                value={form.password}
+                onChangeText={(t) => setForm({ ...form, password: t })}
+                style={styles.passwordInput}
+              />
+              <TouchableOpacity onPress={() => setSecure(!secure)}>
+                <Ionicons
+                  name={secure ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color="#475569"
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Confirm Password */}
+          <View style={styles.inputWrapper}>
+            <Text style={styles.label}>Confirm Password</Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                placeholder="••••••••"
+                placeholderTextColor="#9CA3AF"
+                secureTextEntry={confirmSecure}
+                value={form.confirmPassword}
+                onChangeText={(t) => setForm({ ...form, confirmPassword: t })}
+                style={styles.passwordInput}
+              />
+              <TouchableOpacity onPress={() => setConfirmSecure(!confirmSecure)}>
+                <Ionicons
+                  name={confirmSecure ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color="#475569"
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Terms */}
+          <Text style={styles.termsText}>
+            By continuing, you agree to{" "}
+            <Text style={styles.termsHighlight}>Terms of Use</Text> and{" "}
+            <Text style={styles.termsHighlight}>Privacy Policy</Text>.
           </Text>
-        </TouchableOpacity>
 
-        {/* Footer */}
-        <View style={styles.footerRow}>
-          <Text style={styles.footerText}>Already have an account? </Text>
-          <TouchableOpacity onPress={() => router.push("/(auth)/login")}>
-            <Text style={styles.footerLink}>Log In</Text>
+          {/* Sign Up Button */}
+          <TouchableOpacity
+            disabled={loading}
+            onPress={handleRegister}
+            style={[styles.signupButton, loading && { opacity: 0.6 }]}
+          >
+            <Text style={styles.signupButtonText}>
+              {loading ? "Signing Up..." : "Sign Up"}
+            </Text>
           </TouchableOpacity>
+
+          {/* Footer */}
+          <View style={styles.footerRow}>
+            <Text style={styles.footerText}>Already have an account? </Text>
+            <TouchableOpacity onPress={() => router.push("/(auth)/login")}>
+              <Text style={styles.footerLink}>Log In</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+
+      {/* Modal */}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeModal}
+      >
+        <View style={styles.modalBackdrop}>
+          <View
+            style={[
+              styles.modalBox,
+              modalType === "success" ? styles.modalSuccess : styles.modalError,
+            ]}
+          >
+            <Ionicons
+              name={modalType === "success" ? "checkmark-circle" : "alert-circle"}
+              size={48}
+              color={modalType === "success" ? "#16A34A" : "#DC2626"}
+            />
+            <Text style={styles.modalMessage}>{modalMessage}</Text>
+            <TouchableOpacity onPress={closeModal} style={styles.modalButton}>
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -264,191 +336,43 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 14,
   },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalBox: {
+    backgroundColor: "#fff",
+    width: "80%",
+    padding: 20,
+    borderRadius: 16,
+    alignItems: "center",
+    elevation: 8,
+  },
+  modalSuccess: {
+    borderColor: "#16A34A",
+    borderWidth: 2,
+  },
+  modalError: {
+    borderColor: "#DC2626",
+    borderWidth: 2,
+  },
+  modalMessage: {
+    fontSize: 15,
+    color: "#111827",
+    textAlign: "center",
+    marginVertical: 12,
+  },
+  modalButton: {
+    backgroundColor: "#000",
+    borderRadius: 25,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+  },
+  modalButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 14,
+  },
 });
-
-// import React, { useState, useContext } from "react";
-// import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert } from "react-native";
-// import { Ionicons } from "@expo/vector-icons";
-// import { useRouter } from "expo-router";
-// import { AuthContext } from "../../context/AuthContext";
-
-// export default function SignupScreen() {
-//   const { register } = useContext(AuthContext);
-//   const router = useRouter();
-
-//   const [form, setForm] = useState({
-//     username: "",
-//     email: "",
-//     mobile: "",
-//     dob: "",
-//     password: "",
-//     confirmPassword: "",
-//   });
-
-//   const [secure, setSecure] = useState(true);
-//   const [confirmSecure, setConfirmSecure] = useState(true);
-//   const [loading, setLoading] = useState(false);
-
-//   const handleRegister = async () => {
-//     const { username, email, password, confirmPassword } = form;
-
-//     if (!username || !email || !password || !confirmPassword) {
-//       return Alert.alert("Missing Fields", "Please fill all required fields.");
-//     }
-//     if (password !== confirmPassword) {
-//       return Alert.alert("Password Mismatch", "Passwords do not match.");
-//     }
-
-//     setLoading(true);
-//     const res = await register(username, email, password);
-//     setLoading(false);
-
-//     if (res.success) {
-//       Alert.alert(
-//         "Registration Successful 🎉",
-//         "A confirmation email has been sent to your inbox.",
-//         [{ text: "OK", onPress: () => router.replace("/(auth)/login") }]
-//       );
-//     } else {
-//       Alert.alert("Registration Failed", res.error || "Please try again.");
-//     }
-//   };
-
-//   return (
-//     <ScrollView
-//       contentContainerStyle={{ flexGrow: 1 }}
-//       showsVerticalScrollIndicator={false}
-//       className="bg-white"
-//     >
-//       {/* Header */}
-//       <View className="bg-black rounded-b-[10%] pb-8 pt-16 items-center justify-center">
-//         <Text className="text-orange-500 text-2xl font-bold">Create Account</Text>
-//       </View>
-
-//       {/* Form Section */}
-//       <View className="flex-1 items-center justify-center px-6 pt-8 pb-12">
-//         {/* Full Name */}
-//         <View className="w-full mb-4">
-//           <Text className="text-gray-700 font-semibold mb-1">Full Name</Text>
-//           <TextInput
-//             placeholder="John Doe"
-//             placeholderTextColor="#9CA3AF"
-//             value={form.username}
-//             onChangeText={(t) => setForm({ ...form, username: t })}
-//             className="w-full bg-gray-200 rounded-full px-4 py-3 text-base text-gray-900"
-//           />
-//         </View>
-
-//         {/* Email */}
-//         <View className="w-full mb-4">
-//           <Text className="text-gray-700 font-semibold mb-1">Email</Text>
-//           <TextInput
-//             placeholder="example@example.com"
-//             placeholderTextColor="#9CA3AF"
-//             keyboardType="email-address"
-//             value={form.email}
-//             onChangeText={(t) => setForm({ ...form, email: t })}
-//             className="w-full bg-gray-200 rounded-full px-4 py-3 text-base text-gray-900"
-//           />
-//         </View>
-
-//         {/* Mobile Number */}
-//         <View className="w-full mb-4">
-//           <Text className="text-gray-700 font-semibold mb-1">Mobile Number</Text>
-//           <TextInput
-//             placeholder="+123 456 789"
-//             placeholderTextColor="#9CA3AF"
-//             keyboardType="phone-pad"
-//             value={form.mobile}
-//             onChangeText={(t) => setForm({ ...form, mobile: t })}
-//             className="w-full bg-gray-200 rounded-full px-4 py-3 text-base text-gray-900"
-//           />
-//         </View>
-
-//         {/* Date of Birth */}
-//         <View className="w-full mb-4">
-//           <Text className="text-gray-700 font-semibold mb-1">Date Of Birth</Text>
-//           <TextInput
-//             placeholder="DD / MM / YYYY"
-//             placeholderTextColor="#9CA3AF"
-//             value={form.dob}
-//             onChangeText={(t) => setForm({ ...form, dob: t })}
-//             className="w-full bg-gray-200 rounded-full px-4 py-3 text-base text-gray-900"
-//           />
-//         </View>
-
-//         {/* Password */}
-//         <View className="w-full mb-4">
-//           <Text className="text-gray-700 font-semibold mb-1">Password</Text>
-//           <View className="flex-row items-center bg-gray-200 rounded-full px-4">
-//             <TextInput
-//               placeholder="••••••••"
-//               placeholderTextColor="#9CA3AF"
-//               secureTextEntry={secure}
-//               value={form.password}
-//               onChangeText={(t) => setForm({ ...form, password: t })}
-//               className="flex-1 py-3 text-base text-gray-900"
-//             />
-//             <TouchableOpacity onPress={() => setSecure(!secure)}>
-//               <Ionicons
-//                 name={secure ? "eye-off-outline" : "eye-outline"}
-//                 size={20}
-//                 color="#475569"
-//               />
-//             </TouchableOpacity>
-//           </View>
-//         </View>
-
-//         {/* Confirm Password */}
-//         <View className="w-full mb-4">
-//           <Text className="text-gray-700 font-semibold mb-1">Confirm Password</Text>
-//           <View className="flex-row items-center bg-gray-200 rounded-full px-4">
-//             <TextInput
-//               placeholder="••••••••"
-//               placeholderTextColor="#9CA3AF"
-//               secureTextEntry={confirmSecure}
-//               value={form.confirmPassword}
-//               onChangeText={(t) => setForm({ ...form, confirmPassword: t })}
-//               className="flex-1 py-3 text-base text-gray-900"
-//             />
-//             <TouchableOpacity onPress={() => setConfirmSecure(!confirmSecure)}>
-//               <Ionicons
-//                 name={confirmSecure ? "eye-off-outline" : "eye-outline"}
-//                 size={20}
-//                 color="#475569"
-//               />
-//             </TouchableOpacity>
-//           </View>
-//         </View>
-
-//         {/* Terms */}
-//         <Text className="text-gray-600 text-xs mt-2 text-center">
-//           By continuing, you agree to{" "}
-//           <Text className="font-semibold">Terms of Use</Text> and{" "}
-//           <Text className="font-semibold">Privacy Policy</Text>.
-//         </Text>
-
-//         {/* Sign Up Button */}
-//         <TouchableOpacity
-//           disabled={loading}
-//           onPress={handleRegister}
-//           className="bg-black w-5/6 rounded-full py-3 mt-6 items-center"
-//         >
-//           <Text className="text-white font-semibold text-base">
-//             {loading ? "Signing Up..." : "Sign Up"}
-//           </Text>
-//         </TouchableOpacity>
-
-//         {/* Footer */}
-//         <View className="flex-row mt-6">
-//           <Text className="text-gray-600 text-sm">
-//             Already have an account?{" "}
-//           </Text>
-//           <TouchableOpacity onPress={() => router.push("/(auth)/login")}>
-//             <Text className="text-orange-500 text-sm font-semibold">Log In</Text>
-//           </TouchableOpacity>
-//         </View>
-//       </View>
-//     </ScrollView>
-//   );
-// }
