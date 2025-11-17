@@ -8,40 +8,39 @@ export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
 
   /* ---------------------------------------------------------
-     1. Test backend connectivity on app startup
+     1. Test backend connection once
   --------------------------------------------------------- */
   useEffect(() => {
     testBackendConnection();
   }, []);
 
   /* ---------------------------------------------------------
-     2. Load logged-in user from /auth/me
+     2. Load token & user on app start
   --------------------------------------------------------- */
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const token = await AsyncStorage.getItem("userToken");
+        const storedToken = await AsyncStorage.getItem("userToken");
 
-        if (!token) {
+        if (!storedToken) {
           setAuthLoading(false);
           return;
         }
 
-        // Attach token to axios
-        api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+        setToken(storedToken);
+        api.defaults.headers.common["Authorization"] = `Bearer ${storedToken}`;
 
-        // Fetch user data
         const res = await api.get("/auth/me");
 
-        if (res.data?.success) {
+        if (res.data.success) {
           setUser(res.data.user);
         }
-      } catch (error) {
-        console.log("Auth load error:", error.response?.data || error);
-        setUser(null);
+      } catch (err) {
+        console.log("Auth load error:", err.response?.data || err);
       } finally {
         setAuthLoading(false);
       }
@@ -51,21 +50,29 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   /* ---------------------------------------------------------
-     3. Refresh user (after deposit, redeem, profile updates)
+     3. Refresh user (after deposit, withdraw, tickets, etc.)
   --------------------------------------------------------- */
   const refreshUser = async () => {
     try {
       const res = await api.get("/auth/me");
-      if (res.data?.success) {
-        setUser(res.data.user);
-      }
-    } catch (error) {
-      console.log("Refresh user failed:", error.response?.data || error);
+      if (res.data.success) setUser(res.data.user);
+    } catch (err) {
+      console.log("Refresh user error:", err.response?.data || err);
     }
   };
 
   /* ---------------------------------------------------------
-     4. REGISTER
+     4. Update user locally (used for tickets)
+  --------------------------------------------------------- */
+  const updateUser = (updates) => {
+    setUser((prev) => ({
+      ...prev,
+      ...updates,
+    }));
+  };
+
+  /* ---------------------------------------------------------
+     5. REGISTER
   --------------------------------------------------------- */
   const register = async (
     username,
@@ -88,63 +95,62 @@ export const AuthProvider = ({ children }) => {
       await AsyncStorage.setItem("userToken", token);
       api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
 
+      setToken(token);
       setUser(user);
+
       return { success: true };
-    } catch (error) {
+    } catch (err) {
       return {
         success: false,
         error:
-          error.response?.data?.error ||
-          "Registration failed. Try again later.",
+          err.response?.data?.error || "Registration failed. Try again later.",
       };
     }
   };
 
   /* ---------------------------------------------------------
-     5. LOGIN
+     6. LOGIN
   --------------------------------------------------------- */
   const login = async (email, password) => {
     try {
       const res = await api.post("/auth/login", { email, password });
-
       const { token, user } = res.data;
 
       await AsyncStorage.setItem("userToken", token);
       api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
 
+      setToken(token);
       setUser(user);
+
       return { success: true };
-    } catch (error) {
+    } catch (err) {
       return {
         success: false,
-        error: error.response?.data?.error || "Invalid login credentials.",
+        error: err.response?.data?.error || "Invalid login credentials.",
       };
     }
   };
 
   /* ---------------------------------------------------------
-     6. FORGOT PASSWORD
+     7. FORGOT PASSWORD
   --------------------------------------------------------- */
   const forgotPassword = async (email) => {
     try {
       const res = await api.post("/auth/forgotpassword", { email });
-      return { success: true, message: res.data.message };
-    } catch (error) {
+    } catch (err) {
       return {
         success: false,
-        error:
-          error.response?.data?.error ||
-          "Unable to send password reset link.",
+        error: err.response?.data?.error || "Unable to send reset mail.",
       };
     }
   };
 
   /* ---------------------------------------------------------
-     7. RESET PASSWORD
+     8. RESET PASSWORD
   --------------------------------------------------------- */
-  const resetPassword = async (token, newPassword) => {
+  const resetPassword = async (tokenParam, newPassword) => {
     try {
-      const res = await api.put(`/auth/resetpassword/${token}`, {
+      const res = await api.put(`/auth/resetpassword/${tokenParam}`, {
         password: newPassword,
       });
 
@@ -153,54 +159,50 @@ export const AuthProvider = ({ children }) => {
       await AsyncStorage.setItem("userToken", newToken);
       api.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
 
+      setToken(newToken);
       await refreshUser();
 
       return { success: true };
-    } catch (error) {
+    } catch (err) {
       return {
         success: false,
-        error:
-          error.response?.data?.error || "Password reset failed.",
+        error: err.response?.data?.error || "Password reset failed.",
       };
     }
   };
 
   /* ---------------------------------------------------------
-     8. SEND EMAIL VERIFICATION
+     9. VERIFY EMAIL
   --------------------------------------------------------- */
   const sendVerificationEmail = async (email) => {
     try {
       const res = await api.post("/auth/verify-email", { email });
       return { success: true, message: res.data.message };
-    } catch (error) {
+    } catch (err) {
       return {
         success: false,
-        error:
-          error.response?.data?.error ||
-          "Failed to send verification email.",
+        error: err.response?.data?.error || "Failed to send verification mail.",
       };
     }
   };
 
-  /* ---------------------------------------------------------
-     9. CONFIRM EMAIL VERIFICATION
-  --------------------------------------------------------- */
-  const confirmVerification = async (token) => {
+  const confirmVerification = async (verifyToken) => {
     try {
-      const res = await api.get(`/auth/confirm-verification/${token}`);
+      const res = await api.get(`/auth/confirm-verification/${verifyToken}`);
 
       const { jwt, user } = res.data;
 
       await AsyncStorage.setItem("userToken", jwt);
       api.defaults.headers.common["Authorization"] = `Bearer ${jwt}`;
 
+      setToken(jwt);
       setUser(user);
+
       return { success: true };
-    } catch (error) {
+    } catch (err) {
       return {
         success: false,
-        error:
-          error.response?.data?.error || "Email verification failed.",
+        error: err.response?.data?.error || "Verification failed.",
       };
     }
   };
@@ -211,26 +213,33 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     await AsyncStorage.removeItem("userToken");
     delete api.defaults.headers.common["Authorization"];
+    setToken(null);
     setUser(null);
   };
 
   /* ---------------------------------------------------------
-     PROVIDER
+     PROVIDER EXPORT
   --------------------------------------------------------- */
   return (
     <AuthContext.Provider
       value={{
         user,
+        token,
         authLoading,
-        register,
+
         login,
+        register,
         logout,
+
         forgotPassword,
         resetPassword,
+
         sendVerificationEmail,
         confirmVerification,
+
         refreshUser,
-        setUser, // optional direct setter
+        updateUser,
+        setUser,
       }}
     >
       {children}
