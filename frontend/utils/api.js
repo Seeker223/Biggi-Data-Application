@@ -78,7 +78,7 @@ export const getLeaderboard = async () => {
 };
 
 export const startMonnifyDeposit = async (amount) => {
-  return api.post("/wallet/initialize-monnify", { amount });
+  return api.post("/wallet/initiate-monnify-payment", { amount });
 };
 
 

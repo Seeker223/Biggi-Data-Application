@@ -1,5 +1,4 @@
 // frontend/app/depositScreen.jsx
-
 import React, { useState, useRef, useEffect, useContext } from "react";
 import {
   View,
@@ -14,25 +13,26 @@ import {
   StyleSheet,
   SafeAreaView,
   ActivityIndicator,
-  Alert,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { WebView } from "react-native-webview";
+import * as Clipboard from "expo-clipboard";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
 import api from "../utils/api";
 import { AuthContext } from "../context/AuthContext";
 
-// NOTE: Contract code (for reference) — DO NOT put secret keys in client.
-// Monnify Contract Code: 5845875672
+const ANIM_DURATION = 300;
 
 const DepositScreen = ({ navigation }) => {
   const { refreshUser } = useContext(AuthContext);
 
   const [method, setMethod] = useState("online"); // online | manual
   const [amount, setAmount] = useState("");
-  const [paymentType, setPaymentType] = useState("card"); // card | bank (if you wish)
+  const [paymentType, setPaymentType] = useState("card"); // card | bank
   const [selectedBank, setSelectedBank] = useState("");
   const [showBankList, setShowBankList] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
 
   const [accountNumbers, setAccountNumbers] = useState([]);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
@@ -42,9 +42,26 @@ const DepositScreen = ({ navigation }) => {
   const [checkoutUrl, setCheckoutUrl] = useState(null);
   const [webviewLoading, setWebviewLoading] = useState(false);
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  // Toast
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState("info"); // info | success | error
+  const toastAnim = useRef(new Animated.Value(-120)).current;
 
-  // Bank list (for manual selection UI)
+  // Bottom sheet
+  const [sheetVisible, setSheetVisible] = useState(false);
+  const sheetAnim = useRef(new Animated.Value(0)).current;
+
+  // Center modal (success/error/info)
+  const [centerModal, setCenterModal] = useState({
+    visible: false,
+    type: "success",
+    title: "",
+    message: "",
+  });
+  // Animated controller for center modal (scale + translate)
+  const centerAnim = useRef(new Animated.Value(0)).current;
+
   const banks = [
     "Access Bank",
     "Guarantee Trust Bank",
@@ -56,198 +73,242 @@ const DepositScreen = ({ navigation }) => {
     "FCMB",
   ];
 
+  // Root backend base url (must be set in env: EXPO_PUBLIC_BASE_URL)
+  const ROOT = process.env.EXPO_PUBLIC_BASE_URL || "";
+
   useEffect(() => {
-    if (method === "manual") {
-      fetchVirtualAccount();
-    }
+    if (method === "manual") fetchVirtualAccount();
   }, [method]);
 
-  // Fetch reserved/static accounts for the logged in user
+  // Fetch reserved/static accounts (Option B: absolute route)
   const fetchVirtualAccount = async () => {
+    if (!ROOT) {
+      showToast("Missing backend base URL (EXPO_PUBLIC_BASE_URL).", "error");
+      return;
+    }
+
     try {
       setLoadingAccounts(true);
-      // Your backend endpoint that returns reserved accounts for the user.
-      // I used the route we discussed earlier. Ensure your backend uses req.user from protect middleware.
-      const res = await api.get("/wallet/create-static-account");
-      // res.data.accounts expected
-      setAccountNumbers(res.data.accounts || []);
-    } catch (e) {
-      console.log("Virtual account fetch error:", e.response?.data || e.message);
+      const token = await AsyncStorage.getItem("userToken");
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await axios.get(`${ROOT}/api/monnify/create-static-account`, { headers, timeout: 15000 });
+      const accounts = res.data.accounts || [];
+      setAccountNumbers(accounts);
+      if (!accounts.length) showToast("No virtual accounts returned from server.", "error");
+    } catch (err) {
+      console.log("Virtual account fetch error:", err.response?.data || err.message);
+      showToast("Failed to load virtual accounts.", "error");
     } finally {
       setLoadingAccounts(false);
     }
   };
 
-  // animate success modal
-  const showModal = () => {
-    setShowSuccess(true);
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 350,
+  // Toast helpers
+  const showToast = (message, type = "info", duration = 3000) => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+
+    Animated.timing(toastAnim, {
+      toValue: Platform.OS === "ios" ? 48 : 20,
+      duration: ANIM_DURATION,
+      useNativeDriver: true,
       easing: Easing.out(Easing.ease),
+    }).start();
+
+    setTimeout(() => {
+      hideToast();
+    }, duration);
+  };
+
+  const hideToast = () => {
+    Animated.timing(toastAnim, {
+      toValue: -120,
+      duration: ANIM_DURATION,
+      useNativeDriver: true,
+      easing: Easing.in(Easing.ease),
+    }).start(() => {
+      setToastVisible(false);
+      setToastMessage("");
+    });
+  };
+
+  // Bottom sheet helpers
+  const openSheet = () => {
+    setSheetVisible(true);
+    Animated.timing(sheetAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+      easing: Easing.out(Easing.ease),
+    }).start();
+  };
+
+  const closeSheet = () => {
+    Animated.timing(sheetAnim, {
+      toValue: 0,
+      duration: 220,
+      useNativeDriver: true,
+      easing: Easing.in(Easing.ease),
+    }).start(() => setSheetVisible(false));
+  };
+
+  // Center modal animation helpers (scale + translate)
+  const openCenterModal = (type, title, message) => {
+    setCenterModal({ visible: true, type, title, message });
+    centerAnim.setValue(0);
+    Animated.spring(centerAnim, {
+      toValue: 1,
+      friction: 8,
+      tension: 70,
       useNativeDriver: true,
     }).start();
   };
 
-  // Validate amount
+  const closeCenterModal = () => {
+    Animated.timing(centerAnim, {
+      toValue: 0,
+      duration: 180,
+      easing: Easing.in(Easing.ease),
+      useNativeDriver: true,
+    }).start(() => {
+      setCenterModal({ visible: false, type: "success", title: "", message: "" });
+    });
+  };
+
   const isValidAmount = () => {
     const n = Number(amount);
     return !isNaN(n) && n > 0;
   };
 
-  // ========== ONLINE (Monnify Hosted Checkout) ==========
-  // 1) Call backend to create a Monnify transaction/checkout (backend hits Monnify)
-  // 2) Backend returns a checkout URL (Monnify hosted checkout)
-  // 3) Open WebView to that URL
-  // 4) Detect redirect URL containing success (status=success) -> close webview, refresh user, show success modal
+  // Initiate Monnify hosted checkout (api calls /api/v1/wallet/initiate-monnify-payment)
   const initiateMonnifyCheckout = async () => {
     if (!isValidAmount()) {
-      Alert.alert("Invalid amount", "Please enter a valid amount to deposit.");
+      openCenterModal("error", "Invalid amount", "Please enter a valid amount to deposit.");
       return;
     }
 
     try {
       setWebviewLoading(true);
-      // POST to backend to create a transaction and get a checkout URL
-      // Backend endpoint: POST /wallet/initiate-monnify-payment  { amount }
-      // Backend should call Monnify API and return { checkoutUrl } (or { redirectUrl })
-      const res = await api.post("/wallet/initiate-monnify-payment", {
-        amount: Number(amount),
-      });
-
-      const url = res.data.checkoutUrl || res.data.redirectUrl || null;
-
+      const res = await api.post("/wallet/initiate-monnify-payment", { amount: Number(amount) });
+      const url = res.data.checkoutUrl || res.data.redirectUrl || res.data.paymentUrl || null;
       if (!url) {
         console.log("No checkout URL returned", res.data);
-        Alert.alert("Payment error", "Could not start payment. Try again.");
-        setWebviewLoading(false);
+        openCenterModal("error", "Payment error", "Could not start payment. Try again.");
         return;
       }
-
       setCheckoutUrl(url);
       setShowWebView(true);
     } catch (error) {
       console.log("initiateMonnifyCheckout error:", error.response?.data || error.message);
-      Alert.alert("Payment error", error.response?.data?.error || "Failed to start payment.");
+      openCenterModal("error", "Payment error", error.response?.data?.error || "Failed to start payment.");
     } finally {
       setWebviewLoading(false);
     }
   };
 
-  // Handle WebView navigation changes to detect success/cancel
+  // WebView navigation detection
   const handleWebViewNavChange = (navState) => {
-    const { url } = navState;
+    const url = navState?.url;
     if (!url) return;
+    const lower = url.toLowerCase();
 
-    // ---- IMPORTANT ----
-    // Your backend/Monnify should redirect to a URL containing a success indicator.
-    // For example: https://your-frontend/callback?status=success&reference=xxxx
-    // This code checks for "status=success" in the URL and treats it as successful payment.
-    // Adjust this check to match the actual return/redirect URL your backend/Monnify setup uses.
-    // --------------------
-
-    try {
-      const lower = url.toLowerCase();
-
-      if (lower.includes("status=success") || lower.includes("payment=successful") || lower.includes("transactionstatus=paid") ) {
-        // Close webview, refresh user balances, show success modal
-        setShowWebView(false);
-        setCheckoutUrl(null);
-        showModal();
-
-        // Refresh user (pull latest balances from /auth/me)
-        refreshUser?.();
-      } else if (lower.includes("status=cancel") || lower.includes("cancel")) {
-        // user cancelled or payment failed
-        setShowWebView(false);
-        setCheckoutUrl(null);
-        Alert.alert("Payment cancelled", "You cancelled the payment.");
-      }
-    } catch (e) {
-      // ignore parse errors
+    if (lower.includes("status=success") || lower.includes("payment=successful") || lower.includes("transactionstatus=paid")) {
+      setShowWebView(false);
+      setCheckoutUrl(null);
+      openCenterModal("success", "Payment success", "Deposit completed successfully.");
+      refreshUser?.();
+    } else if (lower.includes("status=cancel") || lower.includes("cancel")) {
+      setShowWebView(false);
+      setCheckoutUrl(null);
+      openCenterModal("error", "Payment cancelled", "You cancelled the payment.");
     }
   };
 
-  // ========== MANUAL / STATIC VA ==========
-  // User will copy account details and make bank transfer; backend will receive webhook when money is credited.
-  const handleCopyAccount = (acc) => {
-    // you can implement Clipboard.setString(accountNumber) to copy to clipboard
-    Alert.alert("Account copied", `${acc.accountNumber} — ${acc.bankName}`);
+  // Manual helpers
+  const handleCopyAccount = async (acc) => {
+    try {
+      await Clipboard.setStringAsync(acc.accountNumber);
+      showToast(`${acc.accountNumber} copied to clipboard`, "success");
+    } catch (e) {
+      showToast("Could not copy account", "error");
+    }
   };
 
-  // A simple UI action to "I've paid" which will call backend to re-check (optional)
   const handleIvePaid = async () => {
-    // If you provide a manual-check endpoint on backend, call it here.
-    // Alternatively user waits for webhook to update balances; we can call refreshUser to fetch latest user.
     try {
       await refreshUser?.();
-      Alert.alert("Check complete", "We refreshed your account. If payment was received, your balance will update.");
+      showToast("We refreshed your account. If payment was received, your balance will update.", "info");
     } catch (e) {
-      Alert.alert("Error", "Could not refresh. Try again.");
+      showToast("Could not refresh. Try again.", "error");
     }
   };
 
-  // mock pay now for manual UI fallback
   const handlePayNow = () => {
     if (method === "online") {
-      initiateMonnifyCheckout();
+      openSheet();
     } else {
-      // manual: show instructions or confirm button
       if (!selectedBank) {
-        Alert.alert("Select bank", "Please select a bank account above or copy one of the accounts.");
+        openCenterModal("error", "Select bank", "Please select a bank account above.");
         return;
       }
       if (!isValidAmount()) {
-        Alert.alert("Invalid amount", "Please enter a valid amount to deposit.");
+        openCenterModal("error", "Invalid amount", "Please enter a valid amount to deposit.");
         return;
       }
-      // Show modal that instructs user to transfer to selected account
-      showModal();
+      openCenterModal(
+        "info",
+        "Manual transfer",
+        `Please transfer ₦${Number(amount).toLocaleString()} to the selected account and tap "Refresh / Check Payment".`
+      );
     }
   };
 
+  // animations
+  const sheetTranslateY = sheetAnim.interpolate({ inputRange: [0, 1], outputRange: [600, 0] });
+  const centerScale = centerAnim.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] });
+  const centerTranslateY = centerAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] });
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* HEADER */}
+      {/* Toast */}
+      {toastVisible && (
+        <Animated.View
+          style={[
+            styles.toast,
+            {
+              transform: [{ translateY: toastAnim }],
+              backgroundColor: toastType === "error" ? "#ff5252" : toastType === "success" ? "#2ecc71" : "#333",
+            },
+          ]}
+        >
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
+
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={26} color="#000" />
         </TouchableOpacity>
       </View>
 
-      {/* METHOD TOGGLE */}
+      {/* Method Toggle */}
       <View style={styles.toggleContainer}>
-        <TouchableOpacity
-          style={[styles.toggleButton, method === "online" && styles.toggleActive]}
-          onPress={() => setMethod("online")}
-        >
-          <Text style={[styles.toggleText, method === "online" && styles.toggleTextActive]}>
-            Online
-          </Text>
+        <TouchableOpacity style={[styles.toggleButton, method === "online" && styles.toggleActive]} onPress={() => setMethod("online")}>
+          <Text style={[styles.toggleText, method === "online" && styles.toggleTextActive]}>Online</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.toggleButton, method === "manual" && styles.toggleActive]}
-          onPress={() => setMethod("manual")}
-        >
-          <Text style={[styles.toggleText, method === "manual" && styles.toggleTextActive]}>
-            Manual
-          </Text>
+        <TouchableOpacity style={[styles.toggleButton, method === "manual" && styles.toggleActive]} onPress={() => setMethod("manual")}>
+          <Text style={[styles.toggleText, method === "manual" && styles.toggleTextActive]}>Manual</Text>
         </TouchableOpacity>
       </View>
 
-      {/* ONLINE MODE */}
+      {/* Online */}
       {method === "online" ? (
         <>
           <Text style={styles.label}>Pay with Monnify</Text>
 
-          <TextInput
-            placeholder="Amount"
-            style={styles.input}
-            value={amount}
-            onChangeText={setAmount}
-            keyboardType="numeric"
-          />
+          <TextInput placeholder="Amount" style={styles.input} value={amount} onChangeText={setAmount} keyboardType="numeric" />
 
           <View style={styles.radioGroup}>
             <TouchableOpacity style={styles.radioOption} onPress={() => setPaymentType("card")}>
@@ -263,19 +324,21 @@ const DepositScreen = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.payButton}
-            onPress={handlePayNow}
+            onPress={() => {
+              if (!isValidAmount()) {
+                openCenterModal("error", "Invalid amount", "Please enter a valid amount to deposit.");
+                return;
+              }
+              initiateMonnifyCheckout();
+            }}
             disabled={webviewLoading}
           >
-            {webviewLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.payText}>Pay Now</Text>
-            )}
+            {webviewLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.payText}>Pay Now</Text>}
           </TouchableOpacity>
         </>
       ) : (
         <>
-          {/* MANUAL MODE - show reserved accounts */}
+          {/* Manual */}
           <Text style={styles.label}>Pay to any of these accounts</Text>
 
           {loadingAccounts ? (
@@ -289,26 +352,24 @@ const DepositScreen = ({ navigation }) => {
                   <View>
                     <Text style={styles.label}>{item.bankName}</Text>
                     <Text style={{ fontWeight: "700", fontSize: 16 }}>{item.accountNumber}</Text>
-                    <Text style={{ color: "#666" }}>{item.reservedAccountName}</Text>
+                    <Text style={{ color: "#666" }}>{item.reservedAccountName || item.accountName}</Text>
                   </View>
 
                   <View style={{ alignItems: "flex-end" }}>
-                    <TouchableOpacity
-                      onPress={() => handleCopyAccount(item)}
-                      style={{ marginBottom: 6 }}
-                    >
+                    <TouchableOpacity onPress={() => handleCopyAccount(item)} style={{ marginBottom: 6 }}>
                       <Text style={{ color: "#FF7A00", fontWeight: "700" }}>Copy</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      onPress={() => {
-                        setSelectedBank(item.bankName);
+                      onPress={() => setSelectedBank(item.bankName)}
+                      style={{
+                        paddingVertical: 6,
+                        paddingHorizontal: 12,
+                        borderRadius: 8,
+                        backgroundColor: selectedBank === item.bankName ? "#FF7A00" : "#eee",
                       }}
-                      style={{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, backgroundColor: selectedBank === item.bankName ? "#FF7A00" : "#eee" }}
                     >
-                      <Text style={{ color: selectedBank === item.bankName ? "#fff" : "#000" }}>
-                        {selectedBank === item.bankName ? "Selected" : "Select"}
-                      </Text>
+                      <Text style={{ color: selectedBank === item.bankName ? "#fff" : "#000" }}>{selectedBank === item.bankName ? "Selected" : "Select"}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -318,13 +379,7 @@ const DepositScreen = ({ navigation }) => {
             <Text style={styles.label}>No virtual accounts — tap refresh or contact support</Text>
           )}
 
-          <TextInput
-            placeholder="Amount"
-            style={styles.input}
-            value={amount}
-            onChangeText={setAmount}
-            keyboardType="numeric"
-          />
+          <TextInput placeholder="Amount" style={styles.input} value={amount} onChangeText={setAmount} keyboardType="numeric" />
 
           <TouchableOpacity style={styles.selectInput} onPress={() => setShowBankList(true)}>
             <Text style={{ color: selectedBank ? "#000" : "#999" }}>{selectedBank || "Select Bank"}</Text>
@@ -343,7 +398,7 @@ const DepositScreen = ({ navigation }) => {
 
       <Text style={styles.charge}>N100 standard service charge</Text>
 
-      {/* BANK LIST MODAL */}
+      {/* Bank list modal */}
       <Modal visible={showBankList} transparent animationType="fade">
         <View style={styles.overlay}>
           <View style={styles.bankListContainer}>
@@ -366,7 +421,7 @@ const DepositScreen = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* MONNIFY WEBVIEW MODAL */}
+      {/* WebView modal */}
       <Modal visible={showWebView} animationType="slide">
         <View style={{ flex: 1 }}>
           <View style={{ height: 56, flexDirection: "row", alignItems: "center", paddingHorizontal: 12, backgroundColor: "#fff", justifyContent: "space-between" }}>
@@ -406,19 +461,61 @@ const DepositScreen = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* SUCCESS MODAL */}
-      <Modal visible={showSuccess} transparent animationType="fade">
+      {/* Bottom sheet (A) */}
+      <Modal visible={sheetVisible} transparent animationType="none">
+        <View style={styles.sheetOverlay}>
+          <Animated.View style={[styles.bottomSheet, { transform: [{ translateY: sheetTranslateY }] }]}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Confirm Deposit</Text>
+            <Text style={styles.sheetText}>You are about to deposit ₦{Number(amount || 0).toLocaleString()}</Text>
+
+            <View style={{ flexDirection: "row", marginTop: 18 }}>
+              <TouchableOpacity style={[styles.payButton, { flex: 1, marginRight: 8 }]} onPress={() => { closeSheet(); initiateMonnifyCheckout(); }}>
+                <Text style={styles.payText}>Proceed</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.payButton, { flex: 1, backgroundColor: "#ddd" }]} onPress={closeSheet}>
+                <Text style={[styles.payText, { color: "#000" }]}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
+
+      {/* CENTER MODAL (animated scale + translate) */}
+      <Modal visible={centerModal.visible} transparent animationType="none">
         <View style={styles.overlay}>
-          <Animated.View style={[styles.successBox, { opacity: fadeAnim }]}>
-            <View style={styles.successIcon}>
-              <Ionicons name="checkmark" size={40} color="#fff" />
+          <Animated.View
+            style={[
+              styles.centerBox,
+              {
+                transform: [{ translateY: centerTranslateY }, { scale: centerScale }],
+                // tint for error / success border
+                borderWidth: centerModal.type === "error" ? 0 : 0,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.centerIcon,
+                {
+                  backgroundColor:
+                    centerModal.type === "success" ? "#2ecc71" : centerModal.type === "error" ? "#ff5252" : "#FF7A00",
+                },
+              ]}
+            >
+              <Ionicons
+                name={centerModal.type === "success" ? "checkmark" : centerModal.type === "error" ? "alert-circle" : "information"}
+                size={36}
+                color="#fff"
+              />
             </View>
 
-            <Text style={styles.successTitle}>Success</Text>
-            <Text style={styles.successMessage}>Deposit Successful</Text>
+            <Text style={styles.centerTitle}>{centerModal.title}</Text>
+            <Text style={styles.centerMessage}>{centerModal.message}</Text>
 
-            <TouchableOpacity onPress={() => setShowSuccess(false)} style={styles.exitButton}>
-              <Text style={styles.exitText}>Exit</Text>
+            <TouchableOpacity onPress={closeCenterModal} style={[styles.exitButton, { marginTop: 16 }]}>
+              <Text style={styles.exitText}>OK</Text>
             </TouchableOpacity>
           </Animated.View>
         </View>
@@ -431,161 +528,45 @@ export default DepositScreen;
 
 /* -------------------------- STYLES -------------------------- */
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-    padding: 20,
-  },
-  header: {
-    marginBottom: 20,
-  },
-  toggleContainer: {
-    flexDirection: "row",
-    backgroundColor: "#d9d9d9",
-    borderRadius: 12,
-    overflow: "hidden",
-    marginBottom: 20,
-  },
-  toggleButton: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 10,
-  },
-  toggleActive: {
-    backgroundColor: "#FF7A00",
-  },
-  toggleText: {
-    color: "#000",
-    fontWeight: "600",
-  },
-  toggleTextActive: {
-    color: "#fff",
-  },
-  label: {
-    color: "#333",
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: "#E5E5E5",
-    borderRadius: 12,
-    padding: 15,
-    fontSize: 16,
-    marginBottom: 20,
-  },
-  selectInput: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#E5E5E5",
-    borderRadius: 12,
-    padding: 15,
-  },
-  payButton: {
-    backgroundColor: "#FF7A00",
-    paddingVertical: 15,
-    borderRadius: 12,
-    marginTop: 20,
-  },
-  payText: {
-    textAlign: "center",
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 16,
-  },
-  charge: {
-    textAlign: "center",
-    color: "gray",
-    marginTop: 10,
-  },
-  radioGroup: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  radioOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginRight: 25,
-  },
-  radioCircle: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 2,
-    borderColor: "#ccc",
-    marginRight: 8,
-  },
-  radioSelected: {
-    backgroundColor: "#FF7A00",
-    borderColor: "#FF7A00",
-  },
-  radioLabel: {
-    fontSize: 15,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.3)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  bankListContainer: {
-    backgroundColor: "#fff",
-    width: "80%",
-    maxHeight: "60%",
-    borderRadius: 12,
-    padding: 15,
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  accountRow: {
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: "#F7F7F7",
-    marginBottom: 12,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  successBox: {
-    backgroundColor: "#fff",
-    padding: 25,
-    borderRadius: 20,
-    alignItems: "center",
-    width: "85%",
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  successIcon: {
-    backgroundColor: "#2ecc71",
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  successTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-  },
-  successMessage: {
-    marginTop: 5,
-    fontSize: 16,
-  },
-  exitButton: {
-    backgroundColor: "#FF7A00",
-    paddingVertical: 14,
-    borderRadius: 12,
-    width: "100%",
-    marginTop: 25,
-  },
-  exitText: {
-    textAlign: "center",
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
+  container: { flex: 1, backgroundColor: "#fff", padding: 20 },
+  header: { marginBottom: 20 },
+  toggleContainer: { flexDirection: "row", backgroundColor: "#d9d9d9", borderRadius: 12, overflow: "hidden", marginBottom: 20 },
+  toggleButton: { flex: 1, alignItems: "center", paddingVertical: 10 },
+  toggleActive: { backgroundColor: "#FF7A00" },
+  toggleText: { color: "#000", fontWeight: "600" },
+  toggleTextActive: { color: "#fff" },
+  label: { color: "#333", marginBottom: 8 },
+  input: { backgroundColor: "#E5E5E5", borderRadius: 12, padding: 15, fontSize: 16, marginBottom: 20 },
+  selectInput: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#E5E5E5", borderRadius: 12, padding: 15 },
+  payButton: { backgroundColor: "#FF7A00", paddingVertical: 15, borderRadius: 12, marginTop: 20 },
+  payText: { textAlign: "center", color: "#fff", fontWeight: "700", fontSize: 16 },
+  charge: { textAlign: "center", color: "gray", marginTop: 10 },
+  radioGroup: { flexDirection: "row", alignItems: "center", marginBottom: 15 },
+  radioOption: { flexDirection: "row", alignItems: "center", marginRight: 25 },
+  radioCircle: { width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: "#ccc", marginRight: 8 },
+  radioSelected: { backgroundColor: "#FF7A00", borderColor: "#FF7A00" },
+  radioLabel: { fontSize: 15 },
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "center", alignItems: "center" },
+  bankListContainer: { backgroundColor: "#fff", width: "80%", maxHeight: "60%", borderRadius: 12, padding: 15, shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 10, elevation: 6 },
+  accountRow: { padding: 12, borderRadius: 12, backgroundColor: "#F7F7F7", marginBottom: 12, flexDirection: "row", justifyContent: "space-between" },
+
+  // Toast
+  toast: { position: "absolute", left: 16, right: 16, top: 0, padding: 10, borderRadius: 10, zIndex: 1000, elevation: 10 },
+  toastText: { color: "#fff", textAlign: "center", fontWeight: "600" },
+
+  // Bottom sheet
+  sheetOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "flex-end" },
+  bottomSheet: { backgroundColor: "#fff", borderTopLeftRadius: 18, borderTopRightRadius: 18, padding: 20, minHeight: 260 },
+  sheetHandle: { width: 50, height: 5, backgroundColor: "#ddd", borderRadius: 3, alignSelf: "center", marginBottom: 12 },
+  sheetTitle: { fontWeight: "700", fontSize: 18, marginTop: 4 },
+  sheetText: { color: "#444", marginTop: 8 },
+
+  // Center modal
+  centerBox: { backgroundColor: "#fff", padding: 22, borderRadius: 14, width: "86%", alignItems: "center", shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 8, elevation: 12 },
+  centerIcon: { width: 72, height: 72, borderRadius: 36, justifyContent: "center", alignItems: "center", marginBottom: 14 },
+  centerTitle: { fontWeight: "800", fontSize: 18 },
+  centerMessage: { marginTop: 8, textAlign: "center", color: "#444" },
+
+  exitButton: { backgroundColor: "#FF7A00", paddingVertical: 14, borderRadius: 12, width: "100%", marginTop: 25 },
+  exitText: { textAlign: "center", color: "#fff", fontSize: 16, fontWeight: "600" },
 });
