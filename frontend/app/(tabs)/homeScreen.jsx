@@ -1,6 +1,4 @@
-// frontend/app/(tabs)/homeScreen.jsx
-
-import React, { useContext } from "react";
+import React, { useContext, useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -9,13 +7,14 @@ import {
   Image,
   ScrollView,
   Dimensions,
-  Platform,
+  ActivityIndicator,
+  Modal,
 } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { MotiView, MotiText } from "moti";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 
 import FloatingBottomNav from "../../components/FloatingBottomNav";
 import { AuthContext } from "../../context/AuthContext";
@@ -24,21 +23,48 @@ const { width } = Dimensions.get("window");
 
 const HomeScreen = () => {
   const navigation = useNavigation();
+  const { user, refreshUser, authLoading } = useContext(AuthContext);
 
-  const { user } = useContext(AuthContext);
+  const [ticketModalVisible, setTicketModalVisible] = useState(false);
 
-  // ⭐ BALANCES FROM DATABASE
-  const mainBalance = user?.mainBalance || 0;
-  const rewardBalance = user?.rewardBalance || 0;
+  // Auto-refresh user
+  useFocusEffect(
+    useCallback(() => {
+      if (user) refreshUser();
+    }, [user])
+  );
 
+  if (authLoading || !user) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FF7A00" />
+        <Text style={{ color: "#fff", marginTop: 10 }}>Loading...</Text>
+      </View>
+    );
+  }
+
+  // WALLET VALUES
+  const mainBalance = Number(user.mainBalance || 0);
+  const rewardBalance = Number(user.rewardBalance || 0);
+  const tickets = Number(user.tickets || 0);
+
+  // NAVIGATION
   const goToDeposit = () => navigation.navigate("depositScreen");
   const goToWithdraw = () => navigation.navigate("withdrawScreen");
   const goToBundle = () => navigation.navigate("screens/BuyDataScreen");
   const goToRedeem = () => navigation.navigate("redeemScreen");
   const goToNotification = () => navigation.navigate("notificationScreen");
-  const goToProfile = () => navigation.navigate("withdrawScreen");
-  const goToDailyGame = () => navigation.navigate("dailyGameScreen");
-  const goToWeeklyDraw = () => navigation.navigate("WeeklyDrawScreen");
+
+  // GAME VALIDATIONS
+  const handleDailyGame = () => {
+    if (tickets <= 0) return setTicketModalVisible(true);
+    navigation.navigate("screens/DailyNumberDrawScreen");
+  };
+
+  const handleWeeklyGame = () => {
+    if (tickets <= 0) return setTicketModalVisible(true);
+    navigation.navigate("screens/GameWinnersScreen");
+  };
 
   return (
     <View style={styles.container}>
@@ -46,7 +72,7 @@ const HomeScreen = () => {
         contentContainerStyle={{ paddingBottom: 180 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
+        {/* HEADER */}
         <View style={styles.header}>
           <View style={styles.userInfo}>
             <Image
@@ -65,32 +91,24 @@ const HomeScreen = () => {
                 transition={{ type: "timing", duration: 600 }}
                 style={styles.welcomeText}
               >
-                Hi, {user?.username || "User"}
+                Hi, {user.username}
               </MotiText>
-
-              <Text style={styles.subText} onPress={goToProfile}>
-                Welcome back
-              </Text>
+              <Text style={styles.subText}>Welcome back</Text>
             </View>
           </View>
 
-          {/* Notification */}
           <TouchableOpacity style={styles.bellBtn} onPress={goToNotification}>
             <MotiView
               from={{ scale: 1 }}
               animate={{ scale: [1, 1.3, 1] }}
-              transition={{
-                type: "timing",
-                loop: true,
-                duration: 1000,
-              }}
+              transition={{ loop: true, type: "timing", duration: 1000 }}
             >
               <Ionicons name="notifications" size={26} color="#FF7A00" />
             </MotiView>
           </TouchableOpacity>
         </View>
 
-        {/* Wallet Card */}
+        {/* WALLET CARD */}
         <MotiView
           from={{ opacity: 0, translateY: 20 }}
           animate={{ opacity: 1, translateY: 0 }}
@@ -100,7 +118,9 @@ const HomeScreen = () => {
           <View style={styles.balanceRow}>
             <View>
               <Text style={styles.label}>Main Balance</Text>
-              <Text style={styles.balance}>₦{mainBalance.toLocaleString()}</Text>
+              <Text style={styles.balance}>
+                ₦{mainBalance.toLocaleString()}
+              </Text>
             </View>
 
             <View>
@@ -130,36 +150,44 @@ const HomeScreen = () => {
           </View>
         </MotiView>
 
-        <Text style={styles.infoText}>
-          ✅ Buy Any Bundle → Unlock Daily & {"\n"} Weekly Games + Monthly Draw
+        {/* TICKET TEXT */}
+        <Text style={styles.ticketText}>
+          🎫 Available Tickets:{" "}
+          <Text style={{ color: "#FF7A00", fontWeight: "bold" }}>
+            {tickets}
+          </Text>
         </Text>
 
-        {/* Games + Bundle Section */}
+        <Text style={styles.infoText}>
+          ✅ Buy Any Bundle → Unlock Daily & Weekly Games + Monthly Draw
+        </Text>
+
+        {/* WHITE SECTION */}
         <View style={styles.whiteWrapper}>
           <LinearGradient
             colors={["#ffffff", "#f7f7f7"]}
             style={styles.whiteSection}
           >
-            {/* Bundle Card */}
+            {/* ⭐ BUNDLE CARD */}
             <MotiView
-              from={{ opacity: 0, translateY: 30 }}
-              animate={{ opacity: 1, translateY: 0 }}
+              from={{ opacity: 0, translateY: 25, scale: 0.95 }}
+              animate={{
+                opacity: 1,
+                translateY: 0,
+                scale: 1,
+              }}
               transition={{ type: "timing", duration: 700 }}
               style={styles.bundleCard}
             >
-              <View style={styles.bundleLeft}>
-                <MotiView
-                  from={{ scale: 1 }}
-                  animate={{ scale: [1, 1.2, 1] }}
-                  transition={{
-                    loop: true,
-                    type: "timing",
-                    duration: 1500,
-                  }}
-                >
-                  <Ionicons name="wifi-outline" size={28} color="#FF7A00" />
-                </MotiView>
+              <MotiView
+                from={{ shadowOpacity: 0.1 }}
+                animate={{ shadowOpacity: [0.1, 0.4, 0.1] }}
+                transition={{ loop: true, duration: 2000 }}
+                style={styles.bundleGlowOverlay}
+              />
 
+              <View style={styles.bundleLeft}>
+                <Ionicons name="wifi-outline" size={28} color="#FF7A00" />
                 <Text style={styles.bundleTitle}>Buy Data Bundle Daily</Text>
 
                 <TouchableOpacity style={styles.smallBtn} onPress={goToBundle}>
@@ -169,74 +197,72 @@ const HomeScreen = () => {
 
               <View style={styles.dividerVertical} />
 
+              {/* RIGHT SIDE WITH BADGE */}
               <View style={styles.bundleRight}>
-                <MotiView
-                  from={{ rotate: "0deg" }}
-                  animate={{
-                    rotate: [
-                      "0deg",
-                      "15deg",
-                      "0deg",
-                      "-15deg",
-                      "0deg",
-                    ],
-                  }}
-                  transition={{
-                    loop: true,
-                    type: "timing",
-                    duration: 2500,
-                  }}
-                >
+                <View style={styles.ticketIconContainer}>
+                  {/* glowing pulse */}
+                  <MotiView
+                    from={{ opacity: 0.4, scale: 1 }}
+                    animate={{ opacity: [0.4, 1, 0.4], scale: [1, 1.15, 1] }}
+                    transition={{ loop: true, duration: 1800 }}
+                    style={styles.ticketGlow}
+                  />
+
                   <Ionicons name="ticket-outline" size={26} color="#000" />
-                </MotiView>
+
+                  <MotiView
+                    style={styles.ticketBadge}
+                    from={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring" }}
+                  >
+                    <Text style={styles.ticketBadgeText}>{tickets}</Text>
+                  </MotiView>
+                </View>
 
                 <Text style={styles.bundleDesc}>
-                  Win Daily Tickets + One-Time Weekly Ticket To Participate In
-                  Our Reward Games
+                  Win Daily Tickets + One-Time Weekly Ticket!
                 </Text>
               </View>
             </MotiView>
 
-            {/* Daily Game */}
+            {/* ⭐ DAILY GAME – PULSATING RESTORED */}
             <MotiView
-              from={{ scale: 0.9 }}
-              animate={{ scale: [0.9, 1, 0.9] }}
-              transition={{
-                loop: true,
-                type: "timing",
-                duration: 3000,
-              }}
+              from={{ scale: 1 }}
+              animate={{ scale: [1, 1.03, 1] }}
+              transition={{ loop: true, duration: 1800 }}
               style={styles.gameCard}
             >
               <Ionicons name="game-controller" size={28} color="#fff" />
-              <Text style={styles.gameTitle}>Daily Number Picker Reward Game</Text>
+              <Text style={styles.gameTitle}>Daily Number Picker Game</Text>
 
               <TouchableOpacity
-                style={styles.playBtn}
-                onPress={goToDailyGame}
+                style={[
+                  styles.playBtn,
+                  tickets <= 0 ? styles.disabledBtn : null,
+                ]}
+                onPress={handleDailyGame}
               >
                 <Text style={styles.playText}>Play Now</Text>
               </TouchableOpacity>
             </MotiView>
 
-            {/* Weekly Game */}
+            {/* ⭐ WEEKLY GAME – PULSATING RESTORED */}
             <MotiView
-              from={{ scale: 0.9 }}
-              animate={{ scale: [0.9, 1, 0.9] }}
-              transition={{
-                loop: true,
-                type: "timing",
-                duration: 3000,
-                delay: 1000,
-              }}
+              from={{ scale: 1 }}
+              animate={{ scale: [1, 1.03, 1] }}
+              transition={{ loop: true, duration: 1800 }}
               style={styles.gameCard}
             >
               <Ionicons name="football-outline" size={28} color="#fff" />
-              <Text style={styles.gameTitle}>Weekly Top Buyers Reward Game</Text>
+              <Text style={styles.gameTitle}>Weekly Top Buyers Game</Text>
 
               <TouchableOpacity
-                style={styles.playBtn}
-                onPress={goToWeeklyDraw}
+                style={[
+                  styles.playBtn,
+                  tickets <= 0 ? styles.disabledBtn : null,
+                ]}
+                onPress={handleWeeklyGame}
               >
                 <Text style={styles.playText}>Play Now</Text>
               </TouchableOpacity>
@@ -245,7 +271,26 @@ const HomeScreen = () => {
         </View>
       </ScrollView>
 
-      {/* Bottom Navigation */}
+      {/* NO TICKET MODAL */}
+      <Modal transparent visible={ticketModalVisible} animationType="fade">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalBox}>
+            <Ionicons name="alert-circle" size={42} color="#FF7A00" />
+            <Text style={styles.modalTitle}>No Tickets Available</Text>
+            <Text style={styles.modalMsg}>
+              You need at least 1 ticket to play this game.
+            </Text>
+
+            <TouchableOpacity
+              style={styles.modalBtn}
+              onPress={() => setTicketModalVisible(false)}
+            >
+              <Text style={styles.modalBtnText}>Okay</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <FloatingBottomNav />
     </View>
   );
@@ -253,8 +298,106 @@ const HomeScreen = () => {
 
 export default HomeScreen;
 
+/* ====================== STYLES ====================== */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#000" },
+
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  /* ⭐ TICKET GLOW */
+  ticketGlow: {
+    position: "absolute",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FF7A00",
+    opacity: 0.2,
+  },
+
+  ticketIconContainer: {
+    position: "relative",
+    width: 35,
+    height: 35,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  ticketBadge: {
+    position: "absolute",
+    top: -10,
+    right: -12,
+    backgroundColor: "#FF7A00",
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    minWidth: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 5,
+  },
+
+  ticketBadgeText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 12,
+  },
+
+  /* ⭐ GLOW FOR BUNDLE CARD */
+  bundleGlowOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    shadowColor: "#FF7A00",
+    shadowRadius: 20,
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 0 },
+    zIndex: -1,
+  },
+
+  ticketText: {
+    color: "#fff",
+    fontSize: 15,
+    textAlign: "center",
+    marginTop: 10,
+    fontWeight: "600",
+  },
+
+  disabledBtn: {
+    backgroundColor: "#999",
+    opacity: 0.6,
+  },
+
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  modalBox: {
+    backgroundColor: "#fff",
+    padding: 25,
+    borderRadius: 14,
+    width: "80%",
+    alignItems: "center",
+  },
+
+  modalTitle: { fontWeight: "bold", fontSize: 18, marginTop: 10 },
+  modalMsg: { textAlign: "center", marginVertical: 12, color: "#444" },
+
+  modalBtn: {
+    backgroundColor: "#FF7A00",
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 25,
+    marginTop: 10,
+  },
+
+  modalBtnText: { color: "#fff", fontWeight: "bold" },
+
+  /* HEADER */
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -262,7 +405,9 @@ const styles = StyleSheet.create({
     marginVertical: 20,
     paddingHorizontal: 16,
   },
+
   userInfo: { flexDirection: "row", alignItems: "center" },
+
   avatar: {
     width: 55,
     height: 55,
@@ -271,31 +416,39 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#FF7A00",
   },
+
   welcomeText: { color: "#fff", fontSize: 20, fontWeight: "700" },
   subText: { color: "#bbb", fontSize: 14 },
+
   bellBtn: {
     backgroundColor: "#fff",
     padding: 12,
     borderRadius: 30,
-    shadowColor: "#FF7A00",
-    shadowOpacity: 0.5,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
     elevation: 8,
   },
+
+  /* WALLET */
   walletCard: {
     backgroundColor: "#FFA500",
     borderRadius: 15,
     padding: 16,
     marginHorizontal: 16,
   },
+
   balanceRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
+
   label: { color: "#222", fontWeight: "600" },
-  balance: { fontSize: 26, fontWeight: "800", color: "#000" },
+
+  balance: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: "#000",
+  },
+
   actionBtn: {
     backgroundColor: "#000",
     paddingVertical: 6,
@@ -303,15 +456,26 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginVertical: 4,
   },
+
   actionText: { color: "#fff", fontWeight: "600" },
+
   redeemBtn: {
     backgroundColor: "#444",
     paddingVertical: 8,
     paddingHorizontal: 20,
     borderRadius: 8,
   },
+
   divider: { height: 1, backgroundColor: "#00000030", marginVertical: 10 },
-  infoText: { color: "#fff", fontSize: 13, marginTop: 14, textAlign: "center" },
+
+  infoText: {
+    color: "#fff",
+    fontSize: 13,
+    marginTop: 14,
+    textAlign: "center",
+  },
+
+  /* WHITE SECTION */
   whiteWrapper: {
     marginTop: 20,
     width,
@@ -321,29 +485,32 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 40,
     overflow: "hidden",
   },
+
   whiteSection: {
     paddingTop: 25,
     paddingHorizontal: 16,
-    flex: 1,
     minHeight: 500,
   },
+
   bundleCard: {
     backgroundColor: "#fff",
     borderRadius: 20,
-    marginTop: 8,
     padding: 18,
+    marginTop: 8,
     flexDirection: "row",
     justifyContent: "space-between",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
     elevation: 10,
+    position: "relative",
   },
+
   bundleLeft: { flex: 1, alignItems: "center" },
+
   bundleRight: { flex: 1.3 },
+
   bundleTitle: { fontWeight: "700", marginVertical: 6, fontSize: 15 },
+
   bundleDesc: { fontSize: 13, color: "#333", lineHeight: 18 },
+
   smallBtn: {
     backgroundColor: "#000",
     borderRadius: 8,
@@ -351,31 +518,37 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     marginTop: 4,
   },
+
   smallBtnText: { fontSize: 12, color: "#fff" },
-  dividerVertical: { width: 1, backgroundColor: "#ddd", marginHorizontal: 10 },
+
+  dividerVertical: {
+    width: 1,
+    backgroundColor: "#ddd",
+    marginHorizontal: 10,
+  },
+
+  /* GAME CARDS (pulsating) */
   gameCard: {
     backgroundColor: "#222",
     borderRadius: 16,
     padding: 18,
     alignItems: "center",
     marginTop: 18,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 6,
   },
+
   gameTitle: {
     color: "#fff",
     fontWeight: "700",
     textAlign: "center",
     marginVertical: 8,
   },
+
   playBtn: {
     backgroundColor: "#FF7A00",
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 24,
   },
+
   playText: { color: "#fff", fontWeight: "700" },
 });

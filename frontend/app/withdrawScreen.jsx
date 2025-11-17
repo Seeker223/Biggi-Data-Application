@@ -1,15 +1,18 @@
-import React, { useState } from "react";
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  TextInput, 
-  Modal, 
-  StyleSheet, 
-  FlatList 
+import React, { useState, useContext } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  TextInput,
+  Modal,
+  StyleSheet,
+  FlatList,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+
 import FloatingBottomNav from "../components/FloatingBottomNav";
+import api from "../utils/api";
+import { AuthContext } from "../context/AuthContext";
 
 const banks = [
   "Access Bank",
@@ -21,22 +24,92 @@ const banks = [
 ];
 
 const WithdrawScreen = ({ navigation }) => {
+  const { user, refreshUser } = useContext(AuthContext);
+
   const [method, setMethod] = useState("Opay");
   const [bank, setBank] = useState("");
   const [amount, setAmount] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [accountName, setAccountName] = useState("");
   const [showBankList, setShowBankList] = useState(false);
-  const [successModal, setSuccessModal] = useState(false);
 
-  const handleWithdraw = () => {
-    setSuccessModal(true);
+  const [successModal, setSuccessModal] = useState(false);
+  const [errorModal, setErrorModal] = useState(false);
+  const [errorText, setErrorText] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // 🧾 SUBMIT WITHDRAWAL
+  const handleWithdraw = async () => {
+    if (loading) return;
+
+    if (!amount || !accountNumber || !accountName) {
+      setErrorText("Please fill in all fields.");
+      setErrorModal(true);
+      return;
+    }
+
+    if (method === "Bank Transfer" && !bank) {
+      setErrorText("Please select a bank.");
+      setErrorModal(true);
+      return;
+    }
+
+    if (Number(amount) < 100) {
+      setErrorText("Minimum withdrawal is ₦100");
+      setErrorModal(true);
+      return;
+    }
+
+    if (Number(amount) > user?.mainBalance) {
+      setErrorText("Insufficient balance.");
+      setErrorModal(true);
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const payload = {
+        method,
+        bank,
+        amount: Number(amount),
+        accountNumber,
+        accountName,
+      };
+
+      const res = await api.post("/wallet/withdraw", payload);
+
+      if (res.data.success) {
+        await refreshUser();
+        setSuccessModal(true);
+        setAmount("");
+        setAccountNumber("");
+        setAccountName("");
+        setBank("");
+      } else {
+        setErrorText(res.data.message || "Withdrawal failed.");
+        setErrorModal(true);
+      }
+    } catch (error) {
+      console.log("Withdraw error:", error);
+      setErrorText(
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        "Something went wrong. Try again."
+      );
+      setErrorModal(true);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <View style={styles.container}>
       {/* Back Button */}
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+      <TouchableOpacity
+        onPress={() => navigation.goBack()}
+        style={styles.backButton}
+      >
         <Ionicons name="arrow-back" size={24} color="black" />
       </TouchableOpacity>
 
@@ -46,25 +119,33 @@ const WithdrawScreen = ({ navigation }) => {
           style={[styles.tab, method === "Opay" && styles.activeTab]}
           onPress={() => setMethod("Opay")}
         >
-          <Text style={[styles.tabText, method === "Opay" && styles.activeTabText]}>
+          <Text
+            style={[styles.tabText, method === "Opay" && styles.activeTabText]}
+          >
             Opay
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.tab, method === "Bank Transfer" && styles.activeTab]}
+          style={[
+            styles.tab,
+            method === "Bank Transfer" && styles.activeTab,
+          ]}
           onPress={() => setMethod("Bank Transfer")}
         >
-          <Text style={[styles.tabText, method === "Bank Transfer" && styles.activeTabText]}>
+          <Text
+            style={[
+              styles.tabText,
+              method === "Bank Transfer" && styles.activeTabText,
+            ]}
+          >
             Bank Transfer
           </Text>
         </TouchableOpacity>
       </View>
 
       <Text style={styles.helperText}>
-        {method === "Opay"
-          ? "Pay only to Opay accounts"
-          : "Select bank"}
+        {method === "Opay" ? "Pay only to Opay accounts" : "Select bank"}
       </Text>
 
       {/* Bank Dropdown */}
@@ -97,7 +178,6 @@ const WithdrawScreen = ({ navigation }) => {
                   </TouchableOpacity>
                 )}
               />
-              
             </View>
           )}
         </>
@@ -131,36 +211,64 @@ const WithdrawScreen = ({ navigation }) => {
       />
 
       {/* Withdraw Button */}
-      <TouchableOpacity style={styles.button} onPress={handleWithdraw}>
-        <Text style={styles.buttonText}>Withdraw</Text>
+      <TouchableOpacity
+        style={[styles.button, loading && { opacity: 0.5 }]}
+        onPress={handleWithdraw}
+        disabled={loading}
+      >
+        <Text style={styles.buttonText}>
+          {loading ? "Processing..." : "Withdraw"}
+        </Text>
       </TouchableOpacity>
 
-      {/* Success Modal */}
+      {/* SUCCESS MODAL */}
       <Modal visible={successModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
             <Ionicons name="checkmark-circle" size={60} color="green" />
             <Text style={styles.modalTitle}>Success</Text>
             <Text style={styles.modalMessage}>
-              Withdraw will be sent to the provided destination
+              Withdrawal request has been submitted successfully.
             </Text>
 
             <TouchableOpacity
               style={styles.modalButton}
               onPress={() => setSuccessModal(false)}
             >
-              <Text style={styles.modalButtonText}>Exit</Text>
+              <Text style={styles.modalButtonText}>OK</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
-    <FloatingBottomNav/>
+
+      {/* ERROR MODAL */}
+      <Modal visible={errorModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Ionicons name="alert-circle" size={60} color="red" />
+            <Text style={styles.modalTitle}>Error</Text>
+            <Text style={styles.modalMessage}>{errorText}</Text>
+
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setErrorModal(false)}
+            >
+              <Text style={styles.modalButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <FloatingBottomNav />
     </View>
   );
 };
 
 export default WithdrawScreen;
 
+// =============================
+// 🎨 STYLES
+// =============================
 const styles = StyleSheet.create({
   container: {
     flex: 1,

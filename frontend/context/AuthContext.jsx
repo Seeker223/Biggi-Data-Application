@@ -1,4 +1,5 @@
 // context/AuthContext.jsx
+
 import React, { createContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import api, { testBackendConnection } from "../utils/api";
@@ -9,27 +10,38 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
 
-  // 🔌 Test backend
+  /* ---------------------------------------------------------
+     1. Test backend connectivity on app startup
+  --------------------------------------------------------- */
   useEffect(() => {
     testBackendConnection();
   }, []);
 
-  // 🔁 Load user on startup
+  /* ---------------------------------------------------------
+     2. Load logged-in user from /auth/me
+  --------------------------------------------------------- */
   useEffect(() => {
     const loadUser = async () => {
       try {
         const token = await AsyncStorage.getItem("userToken");
+
         if (!token) {
           setAuthLoading(false);
           return;
         }
 
+        // Attach token to axios
         api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
 
+        // Fetch user data
         const res = await api.get("/auth/me");
-        setUser(res.data.user);
+
+        if (res.data?.success) {
+          setUser(res.data.user);
+        }
       } catch (error) {
-        console.error("Error loading user:", error);
+        console.log("Auth load error:", error.response?.data || error);
+        setUser(null);
       } finally {
         setAuthLoading(false);
       }
@@ -38,22 +50,30 @@ export const AuthProvider = ({ children }) => {
     loadUser();
   }, []);
 
-  // 🔄 Refresh user (use this after deposit, withdraw, redeem, purchases)
+  /* ---------------------------------------------------------
+     3. Refresh user (after deposit, redeem, profile updates)
+  --------------------------------------------------------- */
   const refreshUser = async () => {
     try {
       const res = await api.get("/auth/me");
-      setUser(res.data.user);
+      if (res.data?.success) {
+        setUser(res.data.user);
+      }
     } catch (error) {
-      console.error("Error refreshing user:", error);
+      console.log("Refresh user failed:", error.response?.data || error);
     }
   };
 
-  // ------------------------------------
-  //            AUTH FUNCTIONS
-  // ------------------------------------
-
-  // REGISTER
-  const register = async (username, email, password, phoneNumber, birthDate) => {
+  /* ---------------------------------------------------------
+     4. REGISTER
+  --------------------------------------------------------- */
+  const register = async (
+    username,
+    email,
+    password,
+    phoneNumber,
+    birthDate
+  ) => {
     try {
       const res = await api.post("/auth/register", {
         username,
@@ -71,18 +91,22 @@ export const AuthProvider = ({ children }) => {
       setUser(user);
       return { success: true };
     } catch (error) {
-      console.error("Register error:", error.response?.data || error.message);
       return {
         success: false,
-        error: error.response?.data?.error || "Registration failed.",
+        error:
+          error.response?.data?.error ||
+          "Registration failed. Try again later.",
       };
     }
   };
 
-  // LOGIN
+  /* ---------------------------------------------------------
+     5. LOGIN
+  --------------------------------------------------------- */
   const login = async (email, password) => {
     try {
       const res = await api.post("/auth/login", { email, password });
+
       const { token, user } = res.data;
 
       await AsyncStorage.setItem("userToken", token);
@@ -91,29 +115,33 @@ export const AuthProvider = ({ children }) => {
       setUser(user);
       return { success: true };
     } catch (error) {
-      console.error("Login error:", error.response?.data || error.message);
       return {
         success: false,
-        error: error.response?.data?.error || "Invalid credentials.",
+        error: error.response?.data?.error || "Invalid login credentials.",
       };
     }
   };
 
-  // FORGOT PASSWORD
+  /* ---------------------------------------------------------
+     6. FORGOT PASSWORD
+  --------------------------------------------------------- */
   const forgotPassword = async (email) => {
     try {
       const res = await api.post("/auth/forgotpassword", { email });
       return { success: true, message: res.data.message };
     } catch (error) {
-      console.error("Forgot password:", error.response?.data || error);
       return {
         success: false,
-        error: error.response?.data?.error || "Failed to send reset link.",
+        error:
+          error.response?.data?.error ||
+          "Unable to send password reset link.",
       };
     }
   };
 
-  // RESET PASSWORD
+  /* ---------------------------------------------------------
+     7. RESET PASSWORD
+  --------------------------------------------------------- */
   const resetPassword = async (token, newPassword) => {
     try {
       const res = await api.put(`/auth/resetpassword/${token}`, {
@@ -125,38 +153,42 @@ export const AuthProvider = ({ children }) => {
       await AsyncStorage.setItem("userToken", newToken);
       api.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
 
-      // Refresh user after password reset
       await refreshUser();
 
       return { success: true };
     } catch (error) {
-      console.error("Reset password error:", error.response?.data || error);
       return {
         success: false,
-        error: error.response?.data?.error || "Reset password failed.",
+        error:
+          error.response?.data?.error || "Password reset failed.",
       };
     }
   };
 
-  // SEND EMAIL VERIFICATION
+  /* ---------------------------------------------------------
+     8. SEND EMAIL VERIFICATION
+  --------------------------------------------------------- */
   const sendVerificationEmail = async (email) => {
     try {
       const res = await api.post("/auth/verify-email", { email });
       return { success: true, message: res.data.message };
     } catch (error) {
-      console.error("Email verification error:", error.response?.data || error);
       return {
         success: false,
         error:
-          error.response?.data?.error || "Failed to send verification email.",
+          error.response?.data?.error ||
+          "Failed to send verification email.",
       };
     }
   };
 
-  // CONFIRM EMAIL VERIFICATION
+  /* ---------------------------------------------------------
+     9. CONFIRM EMAIL VERIFICATION
+  --------------------------------------------------------- */
   const confirmVerification = async (token) => {
     try {
       const res = await api.get(`/auth/confirm-verification/${token}`);
+
       const { jwt, user } = res.data;
 
       await AsyncStorage.setItem("userToken", jwt);
@@ -165,29 +197,26 @@ export const AuthProvider = ({ children }) => {
       setUser(user);
       return { success: true };
     } catch (error) {
-      console.error("Confirm verification error:", error.response?.data || error);
       return {
         success: false,
-        error: error.response?.data?.error || "Verification failed.",
+        error:
+          error.response?.data?.error || "Email verification failed.",
       };
     }
   };
 
-  // LOGOUT
+  /* ---------------------------------------------------------
+     10. LOGOUT
+  --------------------------------------------------------- */
   const logout = async () => {
-    try {
-      await AsyncStorage.removeItem("userToken");
-      delete api.defaults.headers.common["Authorization"];
-      setUser(null);
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
+    await AsyncStorage.removeItem("userToken");
+    delete api.defaults.headers.common["Authorization"];
+    setUser(null);
   };
 
-  // ------------------------------------
-  //            PROVIDER VALUE
-  // ------------------------------------
-
+  /* ---------------------------------------------------------
+     PROVIDER
+  --------------------------------------------------------- */
   return (
     <AuthContext.Provider
       value={{
@@ -200,7 +229,8 @@ export const AuthProvider = ({ children }) => {
         resetPassword,
         sendVerificationEmail,
         confirmVerification,
-        refreshUser, // ⭐ important for updating balances
+        refreshUser,
+        setUser, // optional direct setter
       }}
     >
       {children}
