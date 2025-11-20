@@ -6,7 +6,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const BASE_URL = process.env.EXPO_PUBLIC_BASE_URL;
 
 if (!BASE_URL) {
-  console.error("❌ Missing EXPO_PUBLIC_BASE_URL. Set it in .env or app.json");
+  console.error("❌ Missing EXPO_PUBLIC_BASE_URL. Set it in .env");
 } else {
   console.log("📡 API Base URL:", BASE_URL);
 }
@@ -18,16 +18,16 @@ const api = axios.create({
   timeout: 15000,
 });
 
-// 🔐 Attach Token to Every Request
+// 🔐 Attach Token Automatically
 api.interceptors.request.use(async (config) => {
   const token = await AsyncStorage.getItem("userToken");
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// 🚫 Handle Expired Token Globally
+// 🚫 Global Error Handler
 api.interceptors.response.use(
-  (response) => response,
+  (res) => res,
   async (error) => {
     if (error.response?.status === 401) {
       console.warn("🚫 401 Unauthorized — clearing token...");
@@ -46,7 +46,9 @@ api.interceptors.response.use(
   }
 );
 
-// 🧪 Ping server on app startup
+// ---------------------------------------------------------------------------
+// TEST BACKEND CONNECTION
+// ---------------------------------------------------------------------------
 export const testBackendConnection = async () => {
   try {
     const res = await api.get("/auth/ping");
@@ -59,76 +61,73 @@ export const testBackendConnection = async () => {
 };
 
 // ---------------------------------------------------------------------------
-// 🔐 AUTH
+// AUTH
 // ---------------------------------------------------------------------------
 export const loginUser = (payload) => api.post("/auth/login", payload);
 export const registerUser = (payload) => api.post("/auth/register", payload);
 export const fetchUser = () => api.get("/auth/me");
 
 // ---------------------------------------------------------------------------
-// 💰 WALLET + MONNIFY
+// WALLET + MONNIFY
 // ---------------------------------------------------------------------------
-
-// Create static account (if you expose it)
 export const createStaticAccount = () => api.get("/monnify/create-static-account");
-
-// Start deposit using Monnify hosted page or account
 export const startMonnifyDeposit = (amount) =>
   api.post("/wallet/initiate-monnify-payment", { amount });
-
-// Get user wallet transactions
 export const getTransactions = () => api.get("/wallet/transactions");
-
-// Redeem rewards → mainBalance
 export const redeemRewards = () => api.post("/wallet/redeem");
 
 // ---------------------------------------------------------------------------
-// 🎮 GAMES (Daily & Weekly Draw)
+// DATA PURCHASE (FIXED)
 // ---------------------------------------------------------------------------
+export const buyData = async (payload) => {
+  try {
+    const res = await api.post("/data/buy", payload);
+    return res.data;
+  } catch (err) {
+    return {
+      success: false,
+      msg: err.response?.data?.msg || "Failed to purchase data",
+    };
+  }
+};
 
-// Daily game pick (user plays daily)
+// ---------------------------------------------------------------------------
+// GAMES
+// ---------------------------------------------------------------------------
 export const playDailyGame = (numbers) =>
   api.post("/game/daily/play", { numbers });
 
-// Get today's daily draw result
 export const getDailyResult = () => api.get("/game/daily/result");
 
-// Weekly game play
 export const playWeeklyGame = (numbers) =>
   api.post("/game/weekly/play", { numbers });
 
-// Weekly results
 export const getWeeklyResult = () => api.get("/game/weekly/result");
 
-// User daily/weekly tickets
 export const getGameTickets = () => api.get("/game/tickets");
 
 // ---------------------------------------------------------------------------
-// 🏆 LEADERBOARD
+// LEADERBOARD
 // ---------------------------------------------------------------------------
 export const getLeaderboard = async () => {
   try {
     const res = await api.get("/data/leaderboard");
     return res.data.leaderboard || [];
-  } catch (error) {
-    console.log("Failed to load leaderboard", error);
+  } catch (err) {
+    console.log("Failed to load leaderboard", err);
     return [];
   }
 };
 
 // ---------------------------------------------------------------------------
-// 👤 USER PROFILE
+// USER PROFILE
 // ---------------------------------------------------------------------------
 export const updateUserProfile = (payload) =>
   api.put("/user/update-profile", payload);
 
-// Update avatar
 export const updateAvatar = (formData) =>
   api.put("/user/update-avatar", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
 
-// ---------------------------------------------------------------------------
-// DEFAULT EXPORT
-// ---------------------------------------------------------------------------
 export default api;

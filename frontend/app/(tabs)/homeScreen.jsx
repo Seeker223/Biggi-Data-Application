@@ -1,3 +1,4 @@
+//homeScreen
 import React, { useContext, useCallback, useState } from "react";
 import {
   View,
@@ -14,6 +15,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { MotiView, MotiText } from "moti";
+// import { useRouter } from "expo-router";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 
 import FloatingBottomNav from "../../components/FloatingBottomNav";
@@ -23,6 +25,7 @@ const { width } = Dimensions.get("window");
 
 const HomeScreen = () => {
   const navigation = useNavigation();
+  // const router = useRouter();
   const { user, refreshUser, authLoading } = useContext(AuthContext);
 
   const [ticketModalVisible, setTicketModalVisible] = useState(false);

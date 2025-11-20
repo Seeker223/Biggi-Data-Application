@@ -10,26 +10,76 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { AuthContext } from "../../context/AuthContext";  // FIXED PATH
-import api from "../../utils/api";   // ✅ use axios wrapper
+import Confetti from "react-native-confetti"; 
+import { Audio } from "expo-av";
+import { AuthContext } from "../../context/AuthContext";
+import { router } from "expo-router";  // ✅ Expo Router navigation
+
+import api from "../../utils/api";
 
 const { width } = Dimensions.get("window");
 const BOX_SIZE = width / 10 - 5;
 
-export default function DailyNumberDrawScreen({ navigation }) {
+export default function DailyNumberDrawScreen() {
   const { user, refreshUser } = useContext(AuthContext);
 
   const [selectedNumbers, setSelectedNumbers] = useState([]);
   const [submitting, setSubmitting] = useState(false);
-
   const [successModal, setSuccessModal] = useState(false);
   const [toast, setToast] = useState("");
+
+  const [showWinnerFlash, setShowWinnerFlash] = useState(false);
+  const [playAgainModal, setPlayAgainModal] = useState(false);
+
+  const confettiRef = useRef(null);
 
   // animations
   const toastAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const shakeAnim = useRef(new Animated.Value(0)).current;
 
-  // 🔥 SUBMIT BUTTON PULSATING
+  /* ------------------------------------------------------------------ */
+  /*                     PLAY WIN SOUND EFFECT                          */
+  /* ------------------------------------------------------------------ */
+  const playWinSound = async () => {
+    try {
+      const { sound } = await Audio.Sound.createAsync(
+        require("../../assets/sounds/win.wav")
+      );
+      await sound.playAsync();
+    } catch (err) {
+      console.log("Sound failed:", err);
+    }
+  };
+
+  /* ------------------------------------------------------------------ */
+  /*            WIN EFFECT (Flash + Confetti + Sound)                   */
+  /* ------------------------------------------------------------------ */
+  const triggerWinEffects = () => {
+    setShowWinnerFlash(true);
+
+    if (confettiRef.current) {
+      confettiRef.current.startConfetti();
+    }
+
+    playWinSound();
+
+    setTimeout(() => {
+      setShowWinnerFlash(false);
+      if (confettiRef.current) confettiRef.current.stopConfetti();
+    }, 1800);
+  };
+
+  useEffect(() => {
+    const last = user?.dailyNumberDraw?.slice(-1)[0];
+    if (last?.isWinner) {
+      triggerWinEffects();
+    }
+  }, [user]);
+
+  /* ------------------------------------------------------------------ */
+  /*                        BUTTON PULSE EFFECT                         */
+  /* ------------------------------------------------------------------ */
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
@@ -47,7 +97,9 @@ export default function DailyNumberDrawScreen({ navigation }) {
     ).start();
   }, []);
 
-  // 🔥 Toast
+  /* ------------------------------------------------------------------ */
+  /*                                TOAST                               */
+  /* ------------------------------------------------------------------ */
   const showToast = (msg) => {
     setToast(msg);
     Animated.timing(toastAnim, {
@@ -65,19 +117,37 @@ export default function DailyNumberDrawScreen({ navigation }) {
     });
   };
 
-  // 🔢 Toggle numbers
+  /* ------------------------------------------------------------------ */
+  /*                       NUMBER SELECTION (1–70)                      */
+  /* ------------------------------------------------------------------ */
   const toggleNumber = (num) => {
+    if (user?.tickets <= 0) {
+      setPlayAgainModal(true);
+      return;
+    }
+
     if (selectedNumbers.includes(num)) {
       setSelectedNumbers(selectedNumbers.filter((n) => n !== num));
-    } else if (selectedNumbers.length < 5) {
+      return;
+    }
+
+    if (selectedNumbers.length < 5) {
       setSelectedNumbers([...selectedNumbers, num]);
     } else {
       showToast("You can’t select more than 5 numbers");
     }
   };
 
-  // 🚀 Submit numbers
+  /* ------------------------------------------------------------------ */
+  /*                            SUBMIT PLAY                             */
+  /* ------------------------------------------------------------------ */
   const handleSubmit = async () => {
+    if (user?.tickets <= 0) {
+      shake();
+      setPlayAgainModal(true);
+      return;
+    }
+
     if (selectedNumbers.length !== 5) return;
 
     setSubmitting(true);
@@ -88,36 +158,73 @@ export default function DailyNumberDrawScreen({ navigation }) {
       });
 
       if (res.data.success) {
-        await refreshUser(); // reload user to get updated tickets
-        setSuccessModal(true);
+        await refreshUser();
         setSelectedNumbers([]);
+        setSuccessModal(true);
       } else {
         showToast(res.data.message || "Something went wrong");
       }
     } catch (err) {
-      showToast(err.response?.data?.message || "Unable to submit. Try again.");
+      showToast(err.response?.data?.message || "Unable to submit");
     }
 
     setSubmitting(false);
   };
 
+  /* ------------------------------------------------------------------ */
+  /*                             SHAKE EFFECT                           */
+  /* ------------------------------------------------------------------ */
+  const shake = () => {
+    Animated.sequence([
+      Animated.timing(shakeAnim, {
+        toValue: 8,
+        duration: 60,
+        useNativeDriver: true,
+      }),
+      Animated.timing(shakeAnim, {
+        toValue: -8,
+        duration: 60,
+        useNativeDriver: true,
+      }),
+      Animated.timing(shakeAnim, {
+        toValue: 0,
+        duration: 60,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
   return (
     <View style={styles.container}>
-      
+      {/* CONFETTI */}
+      <Confetti ref={confettiRef} duration={1800} untilStopped={true} />
+
+      {/* WIN FLASH */}
+      {showWinnerFlash && (
+        <View style={styles.flashOverlay}>
+          <Text style={styles.flashText}>YOU WON 🎉</Text>
+        </View>
+      )}
+
       {/* HEADER */}
       <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={22} color="#fff" />
         </TouchableOpacity>
+
         <Text style={styles.title}>Daily Number Draw</Text>
-        <View />
+
+        <TouchableOpacity
+          onPress={() => router.push("/screens/DailyHistoryScreen")}
+        >
+          <Ionicons name="time-outline" size={24} color="#fff" />
+        </TouchableOpacity>
       </View>
 
       {/* BODY */}
       <View style={styles.body}>
         <Text style={styles.subText}>
-          Select 5 lucky numbers (1–70).{"\n"}
-          Each play uses **1 ticket**. You can play unlimited times!
+          Select 5 lucky numbers (1–70).{"\n"}Each play uses 1 ticket.
         </Text>
 
         {/* Tickets */}
@@ -151,10 +258,10 @@ export default function DailyNumberDrawScreen({ navigation }) {
           ))}
         </View>
 
-        {/* SUBMIT */}
+        {/* SUBMIT BUTTON */}
         <Animated.View
           style={{
-            transform: [{ scale: pulseAnim }],
+            transform: [{ scale: pulseAnim }, { translateX: shakeAnim }],
             alignSelf: "center",
             width: "60%",
           }}
@@ -176,21 +283,37 @@ export default function DailyNumberDrawScreen({ navigation }) {
         </Animated.View>
       </View>
 
-      {/* SUCCESS MODAL */}
-      <Modal visible={successModal} transparent animationType="fade">
+      {/* SUBMIT SUCCESS */}
+      <Modal visible={successModal} transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Ionicons name="checkmark-circle" size={65} color="#4CD964" />
             <Text style={styles.modalTitle}>Submitted!</Text>
-            <Text style={styles.modalSubtitle}>
-              Check results at 7:00pm daily.
-            </Text>
+            <Text style={styles.modalSubtitle}>Check results at 7:00pm.</Text>
 
             <TouchableOpacity
               style={styles.okButton}
               onPress={() => setSuccessModal(false)}
             >
               <Text style={styles.okText}>Ok</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* NO TICKETS MODAL */}
+      <Modal visible={playAgainModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Ionicons name="alert-circle" size={60} color="#FF3B30" />
+            <Text style={styles.modalTitle}>No Tickets!</Text>
+            <Text style={styles.modalSubtitle}>You need a ticket to play.</Text>
+
+            <TouchableOpacity
+              style={styles.okButton}
+              onPress={() => setPlayAgainModal(false)}
+            >
+              <Text style={styles.okText}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -218,6 +341,10 @@ export default function DailyNumberDrawScreen({ navigation }) {
     </View>
   );
 }
+
+/* ---------------------------------------------------------------------- */
+/*                               STYLES                                   */
+/* ---------------------------------------------------------------------- */
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#000" },
@@ -367,4 +494,21 @@ const styles = StyleSheet.create({
   },
 
   toastText: { color: "#fff", fontWeight: "600", fontSize: 13 },
+
+  flashOverlay: {
+    position: "absolute",
+    top: 0,
+    width: "100%",
+    height: "100%",
+    backgroundColor: "rgba(255,255,0,0.25)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+
+  flashText: {
+    fontSize: 38,
+    fontWeight: "bold",
+    color: "#FFD700",
+  },
 });
