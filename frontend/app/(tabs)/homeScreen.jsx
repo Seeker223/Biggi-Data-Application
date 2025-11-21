@@ -1,4 +1,4 @@
-//homeScreen
+// HomeScreen.js
 import React, { useContext, useCallback, useState } from "react";
 import {
   View,
@@ -15,7 +15,6 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { MotiView, MotiText } from "moti";
-// import { useRouter } from "expo-router";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 
 import FloatingBottomNav from "../../components/FloatingBottomNav";
@@ -25,16 +24,15 @@ const { width } = Dimensions.get("window");
 
 const HomeScreen = () => {
   const navigation = useNavigation();
-  // const router = useRouter();
   const { user, refreshUser, authLoading } = useContext(AuthContext);
 
   const [ticketModalVisible, setTicketModalVisible] = useState(false);
 
-  // Auto-refresh user
+  // 🔥 Auto-Refresh Wallet (Main + Reward + Tickets)
   useFocusEffect(
     useCallback(() => {
-      if (user) refreshUser();
-    }, [user])
+      refreshUser(); // always fetch latest balance on focus
+    }, [])
   );
 
   if (authLoading || !user) {
@@ -153,7 +151,7 @@ const HomeScreen = () => {
           </View>
         </MotiView>
 
-        {/* TICKET TEXT */}
+        {/* TICKETS */}
         <Text style={styles.ticketText}>
           🎫 Available Tickets:{" "}
           <Text style={{ color: "#FF7A00", fontWeight: "bold" }}>
@@ -165,12 +163,13 @@ const HomeScreen = () => {
           ✅ Buy Any Bundle → Unlock Daily & Weekly Games + Monthly Draw
         </Text>
 
-        {/* WHITE SECTION */}
+        {/* ADDITIONAL WHITE SECTION */}
         <View style={styles.whiteWrapper}>
           <LinearGradient
             colors={["#ffffff", "#f7f7f7"]}
             style={styles.whiteSection}
           >
+
             {/* ⭐ BUNDLE CARD */}
             <MotiView
               from={{ opacity: 0, translateY: 25, scale: 0.95 }}
@@ -200,10 +199,8 @@ const HomeScreen = () => {
 
               <View style={styles.dividerVertical} />
 
-              {/* RIGHT SIDE WITH BADGE */}
               <View style={styles.bundleRight}>
                 <View style={styles.ticketIconContainer}>
-                  {/* glowing pulse */}
                   <MotiView
                     from={{ opacity: 0.4, scale: 1 }}
                     animate={{ opacity: [0.4, 1, 0.4], scale: [1, 1.15, 1] }}
@@ -229,7 +226,7 @@ const HomeScreen = () => {
               </View>
             </MotiView>
 
-            {/* ⭐ DAILY GAME – PULSATING RESTORED */}
+            {/* ⭐ DAILY GAME */}
             <MotiView
               from={{ scale: 1 }}
               animate={{ scale: [1, 1.03, 1] }}
@@ -250,7 +247,7 @@ const HomeScreen = () => {
               </TouchableOpacity>
             </MotiView>
 
-            {/* ⭐ WEEKLY GAME – PULSATING RESTORED */}
+            {/* ⭐ WEEKLY GAME */}
             <MotiView
               from={{ scale: 1 }}
               animate={{ scale: [1, 1.03, 1] }}
@@ -274,7 +271,7 @@ const HomeScreen = () => {
         </View>
       </ScrollView>
 
-      {/* NO TICKET MODAL */}
+      {/* MODAL */}
       <Modal transparent visible={ticketModalVisible} animationType="fade">
         <View style={styles.modalContainer}>
           <View style={styles.modalBox}>
@@ -311,7 +308,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  /* ⭐ TICKET GLOW */
   ticketGlow: {
     position: "absolute",
     width: 40,
@@ -349,7 +345,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 
-  /* ⭐ GLOW FOR BUNDLE CARD */
   bundleGlowOverlay: {
     ...StyleSheet.absoluteFillObject,
     shadowColor: "#FF7A00",
@@ -400,7 +395,6 @@ const styles = StyleSheet.create({
 
   modalBtnText: { color: "#fff", fontWeight: "bold" },
 
-  /* HEADER */
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -430,7 +424,6 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
 
-  /* WALLET */
   walletCard: {
     backgroundColor: "#FFA500",
     borderRadius: 15,
@@ -478,7 +471,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  /* WHITE SECTION */
   whiteWrapper: {
     marginTop: 20,
     width,
@@ -530,7 +522,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
   },
 
-  /* GAME CARDS (pulsating) */
   gameCard: {
     backgroundColor: "#222",
     borderRadius: 16,

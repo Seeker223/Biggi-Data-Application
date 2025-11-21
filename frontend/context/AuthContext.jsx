@@ -1,5 +1,3 @@
-// context/AuthContext.jsx
-
 import React, { createContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import api, { testBackendConnection } from "../utils/api";
@@ -54,6 +52,7 @@ export const AuthProvider = ({ children }) => {
   --------------------------------------------------------- */
   const refreshUser = async () => {
     try {
+      if (!token) return;
       const res = await api.get("/auth/me");
       if (res.data.success) setUser(res.data.user);
     } catch (err) {
@@ -62,7 +61,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   /* ---------------------------------------------------------
-     4. Update user locally (used for tickets)
+     4. Update user locally (used for tickets, balance, etc.)
   --------------------------------------------------------- */
   const updateUser = (updates) => {
     setUser((prev) => ({
@@ -74,13 +73,7 @@ export const AuthProvider = ({ children }) => {
   /* ---------------------------------------------------------
      5. REGISTER
   --------------------------------------------------------- */
-  const register = async (
-    username,
-    email,
-    password,
-    phoneNumber,
-    birthDate
-  ) => {
+  const register = async (username, email, password, phoneNumber, birthDate) => {
     try {
       const res = await api.post("/auth/register", {
         username,
@@ -90,20 +83,19 @@ export const AuthProvider = ({ children }) => {
         birthDate,
       });
 
-      const { token, user } = res.data;
+      const { token: newToken, user: newUser } = res.data;
 
-      await AsyncStorage.setItem("userToken", token);
-      api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      await AsyncStorage.setItem("userToken", newToken);
+      api.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
 
-      setToken(token);
-      setUser(user);
+      setToken(newToken);
+      setUser(newUser);
 
       return { success: true };
     } catch (err) {
       return {
         success: false,
-        error:
-          err.response?.data?.error || "Registration failed. Try again later.",
+        error: err.response?.data?.error || "Registration failed. Try again later.",
       };
     }
   };
@@ -114,13 +106,13 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const res = await api.post("/auth/login", { email, password });
-      const { token, user } = res.data;
+      const { token: newToken, user: loggedInUser } = res.data;
 
-      await AsyncStorage.setItem("userToken", token);
-      api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      await AsyncStorage.setItem("userToken", newToken);
+      api.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
 
-      setToken(token);
-      setUser(user);
+      setToken(newToken);
+      setUser(loggedInUser);
 
       return { success: true };
     } catch (err) {
@@ -136,7 +128,8 @@ export const AuthProvider = ({ children }) => {
   --------------------------------------------------------- */
   const forgotPassword = async (email) => {
     try {
-      const res = await api.post("/auth/forgotpassword", { email });
+      await api.post("/auth/forgotpassword", { email });
+      return { success: true };
     } catch (err) {
       return {
         success: false,
@@ -189,14 +182,13 @@ export const AuthProvider = ({ children }) => {
   const confirmVerification = async (verifyToken) => {
     try {
       const res = await api.get(`/auth/confirm-verification/${verifyToken}`);
-
-      const { jwt, user } = res.data;
+      const { jwt, user: verifiedUser } = res.data;
 
       await AsyncStorage.setItem("userToken", jwt);
       api.defaults.headers.common["Authorization"] = `Bearer ${jwt}`;
 
       setToken(jwt);
-      setUser(user);
+      setUser(verifiedUser);
 
       return { success: true };
     } catch (err) {
