@@ -8,9 +8,11 @@ export default {
     scheme: "biggidata",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
+
     ios: {
       supportsTablet: true,
     },
+
     android: {
       adaptiveIcon: {
         backgroundColor: "#E6F4FE",
@@ -21,10 +23,12 @@ export default {
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
     },
+
     web: {
       output: "static",
       favicon: "./assets/images/favicon.png",
     },
+
     plugins: [
       "expo-router",
       [
@@ -40,17 +44,23 @@ export default {
         },
       ],
     ],
+
     experiments: {
       typedRoutes: true,
       reactCompiler: true,
     },
 
-    // 👇 Add your environment variables here
-    // extra: {
-    //   API_URL: process.env.EXPO_PUBLIC_API_URL || "http://192.168.0.105:5000",
-    //   PAYSTACK_PUBLIC_KEY:
-    //     process.env.EXPO_PUBLIC_PAYSTACK_KEY ||
-    //     "pk_test_xxxxxxxxxxxxxxxxxxxxxx",
-    // },
+    // ✔ Add your environment variables + EAS projectId here
+    extra: {
+      // Your env variables (uncomment if needed)
+      // API_URL: process.env.EXPO_PUBLIC_API_URL || "http://192.168.0.105:5000",
+      // PAYSTACK_PUBLIC_KEY:
+      //   process.env.EXPO_PUBLIC_PAYSTACK_KEY ||
+      //   "pk_test_xxxxxxxxxxxxxxxxxxxxxx",
+
+      eas: {
+        projectId: "6fb1c78c-cd5e-4bd7-be3a-d2088aa9b9a9",
+      },
+    },
   },
 };
