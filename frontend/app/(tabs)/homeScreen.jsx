@@ -251,7 +251,7 @@ const pickFromCamera = async () => {
               <Text style={styles.label}>Reward Balance</Text>
               <Text style={styles.balance}>₦{rewardBalance.toLocaleString()}</Text>
             </View>
-            <TouchableOpacity style={styles.redeemBtn} onPress={goToRedeem}>
+            <TouchableOpacity style={styles.redeemBtn} >
               <Text style={styles.actionText}>Redeem</Text>
             </TouchableOpacity>
           </View>

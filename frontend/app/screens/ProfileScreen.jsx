@@ -35,7 +35,7 @@ export default function ProfileScreen() {
     {
       icon: "settings-outline",
       label: "Settings",
-      route: "screens/SettingsScreen",
+      // route: "screens/SettingsScreen",
     },
     { icon: "headset-outline", label: "Support" },
     {
