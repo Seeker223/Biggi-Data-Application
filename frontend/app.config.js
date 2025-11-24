@@ -14,6 +14,7 @@ export default {
     },
 
     android: {
+      package: "com.biggidata.app",   // 👈 REQUIRED by EAS
       adaptiveIcon: {
         backgroundColor: "#E6F4FE",
         foregroundImage: "./assets/images/android-icon-foreground.png",
@@ -50,14 +51,7 @@ export default {
       reactCompiler: true,
     },
 
-    // ✔ Add your environment variables + EAS projectId here
     extra: {
-      // Your env variables (uncomment if needed)
-      // API_URL: process.env.EXPO_PUBLIC_API_URL || "http://192.168.0.105:5000",
-      // PAYSTACK_PUBLIC_KEY:
-      //   process.env.EXPO_PUBLIC_PAYSTACK_KEY ||
-      //   "pk_test_xxxxxxxxxxxxxxxxxxxxxx",
-
       eas: {
         projectId: "6fb1c78c-cd5e-4bd7-be3a-d2088aa9b9a9",
       },
