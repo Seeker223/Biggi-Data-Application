@@ -1,5 +1,6 @@
 // HomeScreen.js
-import React, { useContext, useCallback, useState } from "react";
+// HomeScreen.js
+import React, { useContext, useCallback, useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,8 +11,12 @@ import {
   Dimensions,
   ActivityIndicator,
   Modal,
+  Alert,
+  Platform,
+  ActionSheetIOS,
+  Animated,
 } from "react-native";
-
+import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { MotiView, MotiText } from "moti";
@@ -19,21 +24,46 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 
 import FloatingBottomNav from "../../components/FloatingBottomNav";
 import { AuthContext } from "../../context/AuthContext";
+import { updateAvatar } from "../../utils/api";
 
 const { width } = Dimensions.get("window");
 
 const HomeScreen = () => {
   const navigation = useNavigation();
-  const { user, refreshUser, authLoading } = useContext(AuthContext);
+  const { user, refreshUser, authLoading, updateUser } = useContext(AuthContext);
 
   const [ticketModalVisible, setTicketModalVisible] = useState(false);
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [selectedImageUri, setSelectedImageUri] = useState(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
-  // 🔥 Auto-Refresh Wallet (Main + Reward + Tickets)
+  const spinValue = useRef(new Animated.Value(0)).current;
+
   useFocusEffect(
     useCallback(() => {
-      refreshUser(); // always fetch latest balance on focus
+      refreshUser();
     }, [])
   );
+
+  useEffect(() => {
+    if (uploadingPhoto) {
+      Animated.loop(
+        Animated.timing(spinValue, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        })
+      ).start();
+    } else {
+      spinValue.stopAnimation();
+      spinValue.setValue(0);
+    }
+  }, [uploadingPhoto]);
+
+  const spin = spinValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "360deg"],
+  });
 
   if (authLoading || !user) {
     return (
@@ -44,19 +74,16 @@ const HomeScreen = () => {
     );
   }
 
-  // WALLET VALUES
   const mainBalance = Number(user.mainBalance || 0);
   const rewardBalance = Number(user.rewardBalance || 0);
   const tickets = Number(user.tickets || 0);
 
-  // NAVIGATION
   const goToDeposit = () => navigation.navigate("depositScreen");
   const goToWithdraw = () => navigation.navigate("withdrawScreen");
   const goToBundle = () => navigation.navigate("screens/BuyDataScreen");
   const goToRedeem = () => navigation.navigate("redeemScreen");
   const goToNotification = () => navigation.navigate("notificationScreen");
 
-  // GAME VALIDATIONS
   const handleDailyGame = () => {
     if (tickets <= 0) return setTicketModalVisible(true);
     navigation.navigate("screens/DailyNumberDrawScreen");
@@ -67,24 +94,113 @@ const HomeScreen = () => {
     navigation.navigate("screens/GameWinnersScreen");
   };
 
+const pickFromGallery = async () => {
+  const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!granted) {
+    Alert.alert("Permission required", "Camera roll permission is required!");
+    return;
+  }
+
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: [ImagePicker.MediaType.Image], // UPDATED
+    allowsEditing: true,
+    aspect: [1, 1],
+    quality: 0.7,
+  });
+
+  if (!result.canceled && result.assets?.length > 0) {
+    openPreview(result.assets[0].uri);
+  }
+};
+
+const pickFromCamera = async () => {
+  const { granted } = await ImagePicker.requestCameraPermissionsAsync();
+  if (!granted) {
+    Alert.alert("Permission required", "Camera permission is required!");
+    return;
+  }
+
+  const result = await ImagePicker.launchCameraAsync({
+    mediaTypes: [ImagePicker.MediaType.Image], // UPDATED
+    allowsEditing: true,
+    aspect: [1, 1],
+    quality: 0.7,
+  });
+
+  if (!result.canceled && result.assets?.length > 0) {
+    openPreview(result.assets[0].uri);
+  }
+};
+
+
+  const openPreview = (uri) => {
+    setSelectedImageUri(uri);
+    setPreviewVisible(true);
+  };
+
+  const uploadPhoto = async () => {
+    if (!selectedImageUri) return;
+    try {
+      setUploadingPhoto(true);
+      const filename = selectedImageUri.split("/").pop();
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : `image`;
+      const formData = new FormData();
+      formData.append("photo", { uri: selectedImageUri, name: filename, type });
+      const res = await updateAvatar(formData);
+      if (res.success) {
+        updateUser({ photo: res.user.photo });
+        setPreviewVisible(false);
+        setSelectedImageUri(null);
+      } else {
+        Alert.alert("Upload Failed", res.msg || "Could not update photo");
+      }
+    } catch (err) {
+      console.log("Upload error:", err);
+      Alert.alert("Error", "Failed to upload image. Try again.");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handlePhotoPress = () => {
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ["Cancel", "Take Photo", "Choose from Gallery"],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) pickFromCamera();
+          else if (buttonIndex === 2) pickFromGallery();
+        }
+      );
+    } else {
+      Alert.alert("Update Photo", "Choose an option", [
+        { text: "Take Photo", onPress: pickFromCamera },
+        { text: "Choose from Gallery", onPress: pickFromGallery },
+        { text: "Cancel", style: "cancel" },
+      ]);
+    }
+  };
+
   return (
     <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: 180 }}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={{ paddingBottom: 180 }} showsVerticalScrollIndicator={false}>
         {/* HEADER */}
         <View style={styles.header}>
           <View style={styles.userInfo}>
-            <Image
-              source={{
-                uri: user?.photo
-                  ? user.photo
-                  : "https://i.pravatar.cc/150?img=32",
-              }}
-              style={styles.avatar}
-            />
-
+            <TouchableOpacity onPress={handlePhotoPress} disabled={uploadingPhoto}>
+              <Image
+                source={{ uri: user?.photo || "https://cdn-icons-png.flaticon.com/512/149/149071.png" }}
+                style={styles.avatar}
+              />
+              {uploadingPhoto && (
+                <Animated.View style={[styles.avatarLoader, { transform: [{ rotate: spin }] }]}>
+                  <Ionicons name="refresh" size={20} color="#fff" />
+                </Animated.View>
+              )}
+            </TouchableOpacity>
             <View>
               <MotiText
                 from={{ opacity: 0, translateY: -10 }}
@@ -97,7 +213,6 @@ const HomeScreen = () => {
               <Text style={styles.subText}>Welcome back</Text>
             </View>
           </View>
-
           <TouchableOpacity style={styles.bellBtn} onPress={goToNotification}>
             <MotiView
               from={{ scale: 1 }}
@@ -119,32 +234,23 @@ const HomeScreen = () => {
           <View style={styles.balanceRow}>
             <View>
               <Text style={styles.label}>Main Balance</Text>
-              <Text style={styles.balance}>
-                ₦{mainBalance.toLocaleString()}
-              </Text>
+              <Text style={styles.balance}>₦{mainBalance.toLocaleString()}</Text>
             </View>
-
             <View>
               <TouchableOpacity style={styles.actionBtn} onPress={goToDeposit}>
                 <Text style={styles.actionText}>Deposit</Text>
               </TouchableOpacity>
-
               <TouchableOpacity style={styles.actionBtn} onPress={goToWithdraw}>
                 <Text style={styles.actionText}>Withdraw</Text>
               </TouchableOpacity>
             </View>
           </View>
-
           <View style={styles.divider} />
-
           <View style={styles.balanceRow}>
             <View>
               <Text style={styles.label}>Reward Balance</Text>
-              <Text style={styles.balance}>
-                ₦{rewardBalance.toLocaleString()}
-              </Text>
+              <Text style={styles.balance}>₦{rewardBalance.toLocaleString()}</Text>
             </View>
-
             <TouchableOpacity style={styles.redeemBtn} onPress={goToRedeem}>
               <Text style={styles.actionText}>Redeem</Text>
             </TouchableOpacity>
@@ -154,30 +260,19 @@ const HomeScreen = () => {
         {/* TICKETS */}
         <Text style={styles.ticketText}>
           🎫 Available Tickets:{" "}
-          <Text style={{ color: "#FF7A00", fontWeight: "bold" }}>
-            {tickets}
-          </Text>
+          <Text style={{ color: "#FF7A00", fontWeight: "bold" }}>{tickets}</Text>
         </Text>
-
         <Text style={styles.infoText}>
-          ✅ Buy Any Bundle → Unlock Daily & Weekly Games + Monthly Draw
+          ✅ Buy Any Bundle → Unlock Daily & {"\n"} Weekly Games + Monthly Draw
         </Text>
 
-        {/* ADDITIONAL WHITE SECTION */}
+        {/* WHITE SECTION */}
         <View style={styles.whiteWrapper}>
-          <LinearGradient
-            colors={["#ffffff", "#f7f7f7"]}
-            style={styles.whiteSection}
-          >
-
-            {/* ⭐ BUNDLE CARD */}
+          <LinearGradient colors={["#ffffff", "#f7f7f7"]} style={styles.whiteSection}>
+            {/* BUNDLE CARD */}
             <MotiView
               from={{ opacity: 0, translateY: 25, scale: 0.95 }}
-              animate={{
-                opacity: 1,
-                translateY: 0,
-                scale: 1,
-              }}
+              animate={{ opacity: 1, translateY: 0, scale: 1 }}
               transition={{ type: "timing", duration: 700 }}
               style={styles.bundleCard}
             >
@@ -187,18 +282,14 @@ const HomeScreen = () => {
                 transition={{ loop: true, duration: 2000 }}
                 style={styles.bundleGlowOverlay}
               />
-
               <View style={styles.bundleLeft}>
                 <Ionicons name="wifi-outline" size={28} color="#FF7A00" />
                 <Text style={styles.bundleTitle}>Buy Data Bundle Daily</Text>
-
                 <TouchableOpacity style={styles.smallBtn} onPress={goToBundle}>
                   <Text style={styles.smallBtnText}>Buy Now</Text>
                 </TouchableOpacity>
               </View>
-
               <View style={styles.dividerVertical} />
-
               <View style={styles.bundleRight}>
                 <View style={styles.ticketIconContainer}>
                   <MotiView
@@ -207,9 +298,7 @@ const HomeScreen = () => {
                     transition={{ loop: true, duration: 1800 }}
                     style={styles.ticketGlow}
                   />
-
                   <Ionicons name="ticket-outline" size={26} color="#000" />
-
                   <MotiView
                     style={styles.ticketBadge}
                     from={{ scale: 0 }}
@@ -219,14 +308,11 @@ const HomeScreen = () => {
                     <Text style={styles.ticketBadgeText}>{tickets}</Text>
                   </MotiView>
                 </View>
-
-                <Text style={styles.bundleDesc}>
-                  Win Daily Tickets + One-Time Weekly Ticket!
-                </Text>
+                <Text style={styles.bundleDesc}>Win Daily Tickets + One-Time Weekly Ticket!</Text>
               </View>
             </MotiView>
 
-            {/* ⭐ DAILY GAME */}
+            {/* DAILY GAME */}
             <MotiView
               from={{ scale: 1 }}
               animate={{ scale: [1, 1.03, 1] }}
@@ -235,19 +321,15 @@ const HomeScreen = () => {
             >
               <Ionicons name="game-controller" size={28} color="#fff" />
               <Text style={styles.gameTitle}>Daily Number Picker Game</Text>
-
               <TouchableOpacity
-                style={[
-                  styles.playBtn,
-                  tickets <= 0 ? styles.disabledBtn : null,
-                ]}
+                style={[styles.playBtn, tickets <= 0 ? styles.disabledBtn : null]}
                 onPress={handleDailyGame}
               >
                 <Text style={styles.playText}>Play Now</Text>
               </TouchableOpacity>
             </MotiView>
 
-            {/* ⭐ WEEKLY GAME */}
+            {/* WEEKLY GAME */}
             <MotiView
               from={{ scale: 1 }}
               animate={{ scale: [1, 1.03, 1] }}
@@ -256,12 +338,8 @@ const HomeScreen = () => {
             >
               <Ionicons name="football-outline" size={28} color="#fff" />
               <Text style={styles.gameTitle}>Weekly Top Buyers Game</Text>
-
               <TouchableOpacity
-                style={[
-                  styles.playBtn,
-                  tickets <= 0 ? styles.disabledBtn : null,
-                ]}
+                style={[styles.playBtn, tickets <= 0 ? styles.disabledBtn : null]}
                 onPress={handleWeeklyGame}
               >
                 <Text style={styles.playText}>Play Now</Text>
@@ -271,20 +349,35 @@ const HomeScreen = () => {
         </View>
       </ScrollView>
 
-      {/* MODAL */}
+      {/* PHOTO PREVIEW MODAL */}
+      <Modal visible={previewVisible} transparent animationType="fade">
+        <View style={styles.modalContainer}>
+          <View style={styles.previewBox}>
+            <Text style={styles.previewTitle}>Preview Photo</Text>
+            <Image source={{ uri: selectedImageUri }} style={styles.previewImage} />
+            <View style={styles.previewBtns}>
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: "#999" }]}
+                onPress={() => setPreviewVisible(false)}
+              >
+                <Text style={styles.modalBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalBtn} onPress={uploadPhoto} disabled={uploadingPhoto}>
+                {uploadingPhoto ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalBtnText}>Upload</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* TICKETS MODAL */}
       <Modal transparent visible={ticketModalVisible} animationType="fade">
         <View style={styles.modalContainer}>
           <View style={styles.modalBox}>
             <Ionicons name="alert-circle" size={42} color="#FF7A00" />
             <Text style={styles.modalTitle}>No Tickets Available</Text>
-            <Text style={styles.modalMsg}>
-              You need at least 1 ticket to play this game.
-            </Text>
-
-            <TouchableOpacity
-              style={styles.modalBtn}
-              onPress={() => setTicketModalVisible(false)}
-            >
+            <Text style={styles.modalMsg}>You need at least 1 ticket to play this game.</Text>
+            <TouchableOpacity style={styles.modalBtn} onPress={() => setTicketModalVisible(false)}>
               <Text style={styles.modalBtnText}>Okay</Text>
             </TouchableOpacity>
           </View>
@@ -297,6 +390,8 @@ const HomeScreen = () => {
 };
 
 export default HomeScreen;
+
+
 
 /* ====================== STYLES ====================== */
 const styles = StyleSheet.create({

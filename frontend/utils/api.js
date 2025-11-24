@@ -1,9 +1,10 @@
 // utils/api.js
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
 
 // 🌍 Validate Base URL from Expo Environment
-const BASE_URL = process.env.EXPO_PUBLIC_BASE_URL;
+const BASE_URL = process.env.EXPO_PUBLIC_BASE_URL || "http://localhost:5000";
 
 if (!BASE_URL) {
   console.error("❌ Missing EXPO_PUBLIC_BASE_URL. Set it in .env");
@@ -77,21 +78,12 @@ export const refreshUserBalance = () => api.get("/wallet/balance");
 // -----------------------------------------------------------
 // WALLET + MONNIFY
 // -----------------------------------------------------------
-export const createStaticAccount = () =>
-  api.get("/monnify/create-static-account");
-
+export const createStaticAccount = () => api.get("/monnify/create-static-account");
 export const startMonnifyDeposit = (amount) =>
   api.post("/wallet/initiate-monnify-payment", { amount });
-
-// Deposit history
 export const depositHistoryApi = () => api.get("/wallet/deposit-history");
 export const getDepositHistory = depositHistoryApi; // backward compatibility
-
-
-// complete transaction list (optional)
 export const getTransactions = () => api.get("/wallet/transactions");
-
-// redeem reward
 export const redeemRewards = () => api.post("/wallet/redeem");
 
 // -----------------------------------------------------------
@@ -108,23 +100,15 @@ export const buyData = async (payload) => {
     };
   }
 };
-
-// history of purchased data
 export const getDataPurchaseHistory = () => api.get("/data/history");
 
 // -----------------------------------------------------------
 // GAMES
 // -----------------------------------------------------------
-export const playDailyGame = (numbers) =>
-  api.post("/game/daily/play", { numbers });
-
+export const playDailyGame = (numbers) => api.post("/game/daily/play", { numbers });
 export const getDailyResult = () => api.get("/game/daily/result");
-
-export const playWeeklyGame = (numbers) =>
-  api.post("/game/weekly/play", { numbers });
-
+export const playWeeklyGame = (numbers) => api.post("/game/weekly/play", { numbers });
 export const getWeeklyResult = () => api.get("/game/weekly/result");
-
 export const getGameTickets = () => api.get("/game/tickets");
 
 // -----------------------------------------------------------
@@ -139,7 +123,8 @@ export const getLeaderboard = async () => {
     return [];
   }
 };
-// ➕ Withdrawal history API
+
+// Withdrawal history
 export const getWithdrawalHistoryApi = async () => {
   const res = await api.get("/wallet/withdraw-history");
   return res.data;
@@ -148,12 +133,31 @@ export const getWithdrawalHistoryApi = async () => {
 // -----------------------------------------------------------
 // USER PROFILE
 // -----------------------------------------------------------
-export const updateUserProfile = (payload) =>
-  api.put("/user/update-profile", payload);
+export const updateUserProfile = (payload) => api.put("/user/update-profile", payload);
 
-export const updateAvatar = (formData) =>
-  api.put("/user/update-avatar", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
+/**
+ * Upload avatar image
+ * @param {FormData} formData
+ */
+export const updateAvatar = async (formData) => {
+  try {
+    const token = await AsyncStorage.getItem("userToken");
+
+    const res = await axios.put(`${BASE_URL}/api/v1/user/update-avatar`, formData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        // DO NOT set Content-Type manually for multipart/form-data
+      },
+    });
+
+    return res.data;
+  } catch (err) {
+    console.log("Avatar upload error:", err.response?.data || err.message);
+    return {
+      success: false,
+      msg: err.response?.data?.msg || "Failed to update avatar",
+    };
+  }
+};
 
 export default api;
