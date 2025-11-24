@@ -83,8 +83,10 @@ export const createStaticAccount = () =>
 export const startMonnifyDeposit = (amount) =>
   api.post("/wallet/initiate-monnify-payment", { amount });
 
-// deposit history
-export const getDepositHistory = () => api.get("/wallet/deposit-history");
+// Deposit history
+export const depositHistoryApi = () => api.get("/wallet/deposit-history");
+export const getDepositHistory = depositHistoryApi; // backward compatibility
+
 
 // complete transaction list (optional)
 export const getTransactions = () => api.get("/wallet/transactions");
@@ -136,6 +138,11 @@ export const getLeaderboard = async () => {
     console.log("Failed to load leaderboard", err);
     return [];
   }
+};
+// ➕ Withdrawal history API
+export const getWithdrawalHistoryApi = async () => {
+  const res = await api.get("/wallet/withdraw-history");
+  return res.data;
 };
 
 // -----------------------------------------------------------

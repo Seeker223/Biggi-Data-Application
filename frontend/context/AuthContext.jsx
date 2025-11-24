@@ -1,3 +1,4 @@
+//context/AuthContext
 import React, { createContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import api, { testBackendConnection } from "../utils/api";
@@ -208,6 +209,15 @@ export const AuthProvider = ({ children }) => {
     setToken(null);
     setUser(null);
   };
+const getDepositHistory = async () => {
+  try {
+    const res = await api.get("/wallet/deposit-history");
+    if (res.data.success) return res.data.deposits;
+  } catch (err) {
+    console.log("Deposit history error:", err.response?.data || err);
+    return [];
+  }
+};
 
   /* ---------------------------------------------------------
      PROVIDER EXPORT
@@ -232,6 +242,7 @@ export const AuthProvider = ({ children }) => {
         refreshUser,
         updateUser,
         setUser,
+        getDepositHistory,
       }}
     >
       {children}

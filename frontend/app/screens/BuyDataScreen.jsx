@@ -1,17 +1,9 @@
+// screens/BuyDataScreen
 import React, { useState, useEffect, useContext } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-  ActivityIndicator,
-  Modal,
-} from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, ActivityIndicator, Modal, KeyboardAvoidingView, Platform } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { buyData } from "../../utils/api";
+import api from "../../utils/api";
 import { AuthContext } from "../../context/AuthContext";
 
 const BuyDataScreen = () => {
@@ -21,30 +13,28 @@ const BuyDataScreen = () => {
 
   const [phone, setPhone] = useState("");
   const [network, setNetwork] = useState(null);
+  const [networkCode, setNetworkCode] = useState(null);
   const [plan, setPlan] = useState(null);
   const [price, setPrice] = useState(0);
-
   const [loading, setLoading] = useState(false);
   const [successModal, setSuccessModal] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // RECEIVE NETWORK & PLAN
   useEffect(() => {
-    if (route.params?.selectedNetwork) {
-      setNetwork(route.params.selectedNetwork);
-    }
-
+    if (route.params?.selectedNetwork) setNetwork(route.params.selectedNetwork);
+    if (route.params?.networkCode) setNetworkCode(route.params.networkCode);
     if (route.params?.selectedPlan) {
-      setPlan(route.params.selectedPlan.name);
-      setPrice(route.params.selectedPlan.price);
+      const p = route.params.selectedPlan;
+      setPlan(p);
+      setPrice(p.amount || p.price || 0);
     }
   }, [route.params]);
 
   const validate = () => {
     if (!phone) return "Enter phone number";
     if (phone.length !== 11) return "Phone number must be 11 digits";
-    if (!network) return "Select a network";
-    if (!plan) return "Select a plan";
+    if (!networkCode) return "Select a network";
+    if (!plan) return "Select a data plan";
     if (!price || price <= 0) return "Invalid plan price";
     return null;
   };
@@ -53,143 +43,83 @@ const BuyDataScreen = () => {
 
   const handlePay = async () => {
     const err = validate();
-    if (err) {
-      setErrorMsg(err);
-      return;
-    }
+    if (err) return setErrorMsg(err);
 
     setErrorMsg("");
     setLoading(true);
 
-    const payload = {
-      mobile_no: phone,
-      plan_id: route.params.selectedPlan.id, // BACKEND REQUIRES THIS
-      amount: price, // *** REQUIRED by backend ***
-      reference: generateReference(),
-    };
+    const backendPlanId = plan.plan_id || plan.code || plan.id || plan._id; // ✅ backend code
 
-    const result = await buyData(payload);
-    setLoading(false);
+    const payload = { network: networkCode, mobile_no: phone, amount: price, plan_id: backendPlanId, reference: generateReference() };
 
-    if (result.success) {
-      setSuccessModal(true);
+    console.log("Sending plan payload →", payload);
 
-      await refreshUser(); // refresh balance
+    try {
+      const res = await api.post("/data/buy", payload);
 
-      setTimeout(() => {
-        setSuccessModal(false);
-
-        navigation.replace("screens/BuyDataSuccessScreen", {
-          phone,
-          network,
-          plan,
-          price,
-        });
-      }, 1500);
-    } else {
-      setErrorMsg(result.msg || "Transaction failed");
+      if (res.data.success) {
+        setSuccessModal(true);
+        await refreshUser();
+        setTimeout(() => {
+          setSuccessModal(false);
+          navigation.replace("screens/BuyDataSuccessScreen", { phone, network, plan: plan.name || plan.plan_name, price });
+        }, 1300);
+      } else setErrorMsg(res.data.msg || "Transaction failed");
+    } catch (error) {
+      console.log("BUY DATA ERROR →", error?.response?.data || error);
+      setErrorMsg(error?.response?.data?.msg || "Unable to process request");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* HEADER */}
-      <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={22} color="#000" />
-        </TouchableOpacity>
-      </View>
-
-      {/* FORM */}
-      <View style={styles.form}>
-        {/* PHONE INPUT */}
-        <View style={styles.inputRow}>
-          <TextInput
-            style={styles.input}
-            placeholder="Phone"
-            placeholderTextColor="#777"
-            keyboardType="phone-pad"
-            value={phone}
-            onChangeText={setPhone}
-          />
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons name="chevron-back" size={22} color="#000" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Buy Data</Text>
         </View>
 
-        <TouchableOpacity style={styles.contactRow}>
-          <Text style={styles.contactText}>Select from Contacts</Text>
-          <Ionicons name="person-add-outline" size={18} color="#000" />
-        </TouchableOpacity>
+        <View style={styles.form}>
+          <TextInput style={styles.input} placeholder="Phone Number" placeholderTextColor="#777" keyboardType="number-pad" value={phone} maxLength={11} onChangeText={setPhone} />
 
-        {/* NETWORK */}
-        <TouchableOpacity
-          style={styles.dropdown}
-          onPress={() => navigation.navigate("screens/SelectNetworkScreen")}
-        >
-          <Text style={styles.dropdownText}>{network || "Network"}</Text>
-          <Ionicons name="chevron-down" size={18} color="#000" />
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.dropdown} onPress={() => navigation.navigate("screens/SelectNetworkScreen")}>
+            <Text style={styles.dropdownText}>{network || "Select Network"}</Text>
+            <Ionicons name="chevron-down" size={18} color="#000" />
+          </TouchableOpacity>
 
-        {/* PLAN */}
-        <TouchableOpacity
-          style={styles.dropdown}
-          onPress={() => {
-            if (!network) {
-              setErrorMsg("Please select a network first");
-            } else {
-              navigation.navigate("screens/SelectPlanScreen", {
-                selectedNetwork: network,
-              });
-            }
-          }}
-        >
-          <Text style={styles.dropdownText}>
-            {plan || "Select Data Plan"}
-          </Text>
-          <Ionicons name="chevron-down" size={18} color="#000" />
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.dropdown}
+            onPress={() => {
+              if (!network) return setErrorMsg("Select network first");
+              navigation.navigate("screens/SelectPlanScreen", { selectedNetwork: network, networkCode, categories: ["SME", "GIFTING", "CG"] });
+            }}
+          >
+            <Text style={styles.dropdownText}>{plan ? plan.name || plan.plan_name : "Select a Data Plan"}</Text>
+            <Ionicons name="chevron-down" size={18} color="#000" />
+          </TouchableOpacity>
 
-        {/* ERROR */}
-        {errorMsg ? (
-          <Text style={{ color: "red", marginBottom: 10 }}>{errorMsg}</Text>
-        ) : null}
+          {errorMsg ? <Text style={styles.errorMsg}>{errorMsg}</Text> : null}
 
-        {/* PAY */}
-        <TouchableOpacity style={styles.payButton} onPress={handlePay}>
-          <Text style={styles.payText}>Pay Now</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={[styles.payButton, loading && { opacity: 0.7 }]} disabled={loading} onPress={handlePay}>
+            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.payText}>Pay Now</Text>}
+          </TouchableOpacity>
 
-        {price > 0 && (
-          <Text style={styles.price}>₦{price.toLocaleString()}</Text>
-        )}
-      </View>
-
-      {/* BOTTOM NAV */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity>
-          <Ionicons name="home" size={22} color="#FF7A00" />
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Ionicons name="document-text-outline" size={22} color="#000" />
-        </TouchableOpacity>
-      </View>
-
-      {/* LOADING MODAL */}
-      <Modal transparent visible={loading}>
-        <View style={styles.modalWrapper}>
-          <ActivityIndicator size="large" color="#FF7A00" />
+          {price > 0 && <Text style={styles.priceLabel}>₦{price.toLocaleString()}</Text>}
         </View>
-      </Modal>
 
-      {/* SUCCESS MODAL */}
-      <Modal transparent visible={successModal}>
-        <View style={styles.modalWrapper}>
-          <View style={styles.successBox}>
-            <Ionicons name="checkmark-circle" size={70} color="green" />
-            <Text style={{ fontSize: 18, fontFamily: "Poppins-SemiBold" }}>
-              Successful
-            </Text>
+        <Modal transparent visible={successModal}>
+          <View style={styles.modalWrapper}>
+            <View style={styles.successBox}>
+              <Ionicons name="checkmark-circle" size={70} color="green" />
+              <Text style={styles.successText}>Transaction Successful</Text>
+            </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -197,93 +127,18 @@ const BuyDataScreen = () => {
 export default BuyDataScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-    paddingHorizontal: 20,
-  },
-  headerRow: {
-    marginTop: 10,
-  },
-  form: {
-    marginTop: 30,
-  },
-  inputRow: {
-    marginBottom: 15,
-  },
-  input: {
-    backgroundColor: "#E5E5E5",
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    fontFamily: "Poppins-Regular",
-    fontSize: 14,
-  },
-  contactRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 25,
-  },
-  contactText: {
-    fontFamily: "Poppins-Regular",
-    fontSize: 13,
-  },
-  dropdown: {
-    backgroundColor: "#E5E5E5",
-    borderRadius: 10,
-    paddingVertical: 14,
-    paddingHorizontal: 15,
-    marginBottom: 15,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  dropdownText: {
-    fontFamily: "Poppins-Regular",
-    fontSize: 14,
-    color: "#000",
-  },
-  payButton: {
-    backgroundColor: "#FF7A00",
-    borderRadius: 15,
-    paddingVertical: 15,
-    alignItems: "center",
-    marginTop: 10,
-  },
-  payText: {
-    color: "#fff",
-    fontFamily: "Poppins-SemiBold",
-    fontSize: 15,
-  },
-  price: {
-    marginTop: 10,
-    fontFamily: "Poppins-SemiBold",
-    fontSize: 14,
-  },
-  bottomNav: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "#F5F3F3",
-    flexDirection: "row",
-    justifyContent: "space-around",
-    paddingVertical: 15,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-  },
-  modalWrapper: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  successBox: {
-    backgroundColor: "#fff",
-    padding: 25,
-    borderRadius: 20,
-    alignItems: "center",
-    width: 180,
-  },
+  container: { flex: 1, backgroundColor: "#fff", paddingHorizontal: 20 },
+  headerRow: { flexDirection: "row", alignItems: "center", marginTop: 10 },
+  headerTitle: { fontSize: 18, fontWeight: "600", marginLeft: 10 },
+  form: { marginTop: 30 },
+  input: { backgroundColor: "#E5E5E5", borderRadius: 10, paddingVertical: 12, paddingHorizontal: 15, fontSize: 14, marginBottom: 15 },
+  dropdown: { backgroundColor: "#E5E5E5", borderRadius: 10, paddingVertical: 14, paddingHorizontal: 15, marginBottom: 15, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  dropdownText: { fontSize: 14, color: "#000" },
+  payButton: { backgroundColor: "#FF7A00", borderRadius: 12, paddingVertical: 15, alignItems: "center", marginTop: 10 },
+  payText: { color: "#fff", fontSize: 15, fontWeight: "600" },
+  priceLabel: { marginTop: 10, fontWeight: "600", fontSize: 15 },
+  modalWrapper: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "center", alignItems: "center" },
+  successBox: { backgroundColor: "#fff", padding: 25, borderRadius: 20, alignItems: "center", width: 220 },
+  successText: { fontSize: 18, fontWeight: "600", marginTop: 10, textAlign: "center" },
+  errorMsg: { color: "red", marginBottom: 10 },
 });
