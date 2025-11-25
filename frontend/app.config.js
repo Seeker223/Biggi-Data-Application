@@ -4,7 +4,7 @@ export default {
     slug: "BiggiData",
     version: "1.0.0",
     orientation: "portrait",
-    icon: "./assets/images/biggiDataSplash@2x.png",
+    icon: "./assets/images/icon.png",
     scheme: "biggidata",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
@@ -35,7 +35,7 @@ export default {
       [
         "expo-splash-screen",
         {
-          image: "./assets/images/BiggiData_SplashScreen.png",
+          image: "./assets/images/splash.png",
           imageWidth: 200,
           resizeMode: "cover",
           backgroundColor: "#000000",
