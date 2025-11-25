@@ -10,10 +10,10 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import Confetti from "react-native-confetti"; 
+import ConfettiCannon from "react-native-confetti-cannon";   // ✅ NEW CONFETTI
 import { Audio } from "expo-av";
 import { AuthContext } from "../../context/AuthContext";
-import { router } from "expo-router";  // ✅ Expo Router navigation
+import { router } from "expo-router"; 
 
 import api from "../../utils/api";
 
@@ -58,16 +58,16 @@ export default function DailyNumberDrawScreen() {
   const triggerWinEffects = () => {
     setShowWinnerFlash(true);
 
+    // fire confetti once
     if (confettiRef.current) {
-      confettiRef.current.startConfetti();
+      confettiRef.current.start();
     }
 
     playWinSound();
 
     setTimeout(() => {
       setShowWinnerFlash(false);
-      if (confettiRef.current) confettiRef.current.stopConfetti();
-    }, 1800);
+    }, 1500);
   };
 
   useEffect(() => {
@@ -196,8 +196,15 @@ export default function DailyNumberDrawScreen() {
 
   return (
     <View style={styles.container}>
-      {/* CONFETTI */}
-      <Confetti ref={confettiRef} duration={1800} untilStopped={true} />
+
+      {/* CONFETTI — new cannon version */}
+      <ConfettiCannon
+        ref={confettiRef}
+        count={200}
+        origin={{ x: width / 2, y: 0 }}
+        fadeOut={true}
+        autoStart={false}
+      />
 
       {/* WIN FLASH */}
       {showWinnerFlash && (
