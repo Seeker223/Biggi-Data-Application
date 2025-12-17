@@ -1,4 +1,3 @@
-//frontend/context/AuthContext
 import React, { createContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import api, { testBackendConnection } from "../utils/api";
@@ -9,6 +8,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [depositHistory, setDepositHistory] = useState([]);
 
   /* ---------------------------------------------------------
      1. Test backend connection once
@@ -24,7 +24,6 @@ export const AuthProvider = ({ children }) => {
     const loadUser = async () => {
       try {
         const storedToken = await AsyncStorage.getItem("userToken");
-
         if (!storedToken) {
           setAuthLoading(false);
           return;
@@ -34,10 +33,12 @@ export const AuthProvider = ({ children }) => {
         api.defaults.headers.common["Authorization"] = `Bearer ${storedToken}`;
 
         const res = await api.get("/auth/me");
-
         if (res.data.success) {
           setUser(res.data.user);
         }
+
+        // Load deposit history
+        await loadDepositHistory();
       } catch (err) {
         console.log("Auth load error:", err.response?.data || err);
       } finally {
@@ -56,13 +57,32 @@ export const AuthProvider = ({ children }) => {
       if (!token) return;
       const res = await api.get("/auth/me");
       if (res.data.success) setUser(res.data.user);
+
+      // Refresh deposit history automatically
+      await loadDepositHistory();
     } catch (err) {
       console.log("Refresh user error:", err.response?.data || err);
     }
   };
 
   /* ---------------------------------------------------------
-     4. Update user locally (used for tickets, balance, etc.)
+     4. Load deposit history
+  --------------------------------------------------------- */
+  const loadDepositHistory = async () => {
+    try {
+      const res = await api.get("/wallet/deposit-history");
+      if (res.data.success) {
+        setDepositHistory(res.data.deposits || []);
+        return res.data.deposits;
+      }
+    } catch (err) {
+      console.log("Deposit history error:", err.response?.data || err);
+      return [];
+    }
+  };
+
+  /* ---------------------------------------------------------
+     5. Update user locally (used for tickets, balance, etc.)
   --------------------------------------------------------- */
   const updateUser = (updates) => {
     setUser((prev) => ({
@@ -72,7 +92,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   /* ---------------------------------------------------------
-     5. REGISTER
+     6. REGISTER
   --------------------------------------------------------- */
   const register = async (username, email, password, phoneNumber, birthDate) => {
     try {
@@ -102,7 +122,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   /* ---------------------------------------------------------
-     6. LOGIN
+     7. LOGIN
   --------------------------------------------------------- */
   const login = async (email, password) => {
     try {
@@ -115,6 +135,9 @@ export const AuthProvider = ({ children }) => {
       setToken(newToken);
       setUser(loggedInUser);
 
+      // Load deposit history after login
+      await loadDepositHistory();
+
       return { success: true };
     } catch (err) {
       return {
@@ -125,7 +148,18 @@ export const AuthProvider = ({ children }) => {
   };
 
   /* ---------------------------------------------------------
-     7. FORGOT PASSWORD
+     8. LOGOUT
+  --------------------------------------------------------- */
+  const logout = async () => {
+    await AsyncStorage.removeItem("userToken");
+    delete api.defaults.headers.common["Authorization"];
+    setToken(null);
+    setUser(null);
+    setDepositHistory([]);
+  };
+
+  /* ---------------------------------------------------------
+     9. OTHER AUTH METHODS (forgot/reset password, verify email)
   --------------------------------------------------------- */
   const forgotPassword = async (email) => {
     try {
@@ -139,15 +173,9 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  /* ---------------------------------------------------------
-     8. RESET PASSWORD
-  --------------------------------------------------------- */
   const resetPassword = async (tokenParam, newPassword) => {
     try {
-      const res = await api.put(`/auth/resetpassword/${tokenParam}`, {
-        password: newPassword,
-      });
-
+      const res = await api.put(`/auth/resetpassword/${tokenParam}`, { password: newPassword });
       const { newToken } = res.data;
 
       await AsyncStorage.setItem("userToken", newToken);
@@ -165,18 +193,12 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  /* ---------------------------------------------------------
-     9. VERIFY EMAIL
-  --------------------------------------------------------- */
   const sendVerificationEmail = async (email) => {
     try {
       const res = await api.post("/auth/verify-email", { email });
       return { success: true, message: res.data.message };
     } catch (err) {
-      return {
-        success: false,
-        error: err.response?.data?.error || "Failed to send verification mail.",
-      };
+      return { success: false, error: err.response?.data?.error || "Failed to send verification mail." };
     }
   };
 
@@ -193,31 +215,9 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true };
     } catch (err) {
-      return {
-        success: false,
-        error: err.response?.data?.error || "Verification failed.",
-      };
+      return { success: false, error: err.response?.data?.error || "Verification failed." };
     }
   };
-
-  /* ---------------------------------------------------------
-     10. LOGOUT
-  --------------------------------------------------------- */
-  const logout = async () => {
-    await AsyncStorage.removeItem("userToken");
-    delete api.defaults.headers.common["Authorization"];
-    setToken(null);
-    setUser(null);
-  };
-const getDepositHistory = async () => {
-  try {
-    const res = await api.get("/wallet/deposit-history");
-    if (res.data.success) return res.data.deposits;
-  } catch (err) {
-    console.log("Deposit history error:", err.response?.data || err);
-    return [];
-  }
-};
 
   /* ---------------------------------------------------------
      PROVIDER EXPORT
@@ -228,10 +228,14 @@ const getDepositHistory = async () => {
         user,
         token,
         authLoading,
+        depositHistory,
 
         login,
         register,
         logout,
+        refreshUser,
+        updateUser,
+        setUser,
 
         forgotPassword,
         resetPassword,
@@ -239,10 +243,7 @@ const getDepositHistory = async () => {
         sendVerificationEmail,
         confirmVerification,
 
-        refreshUser,
-        updateUser,
-        setUser,
-        getDepositHistory,
+        loadDepositHistory, // manually refresh if needed
       }}
     >
       {children}

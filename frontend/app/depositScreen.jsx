@@ -18,7 +18,8 @@ import api from "../utils/api";
 const SERVICE_CHARGE = 100;
 
 const DepositScreen = ({ navigation }) => {
-  const { refreshUser, user, token } = useContext(AuthContext);
+  const { user, refreshUser, loadDepositHistory } = useContext(AuthContext);
+
   const [amount, setAmount] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -75,7 +76,10 @@ const DepositScreen = ({ navigation }) => {
       if (result.data.success) {
         showToast("Wallet credited successfully", "success");
         setAmount("");
+
+        // Refresh wallet balance and deposit history
         await refreshUser();
+        await loadDepositHistory();
       } else {
         showToast(result.data.message || "Verification failed", "error");
       }
@@ -93,7 +97,8 @@ const DepositScreen = ({ navigation }) => {
             styles.toast,
             {
               transform: [{ translateY: toastAnim }],
-              backgroundColor: toastType === "error" ? "#ff5252" : toastType === "success" ? "#28a745" : "#333",
+              backgroundColor:
+                toastType === "error" ? "#ff5252" : toastType === "success" ? "#28a745" : "#333",
             },
           ]}
         >
@@ -142,7 +147,10 @@ const DepositScreen = ({ navigation }) => {
             <Text style={styles.modalTextBold}>Total: ₦{totalAmount}</Text>
 
             <View style={styles.modalButtons}>
-              <TouchableOpacity style={[styles.modalButton, { backgroundColor: "#ccc" }]} onPress={() => setShowConfirm(false)}>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: "#ccc" }]}
+                onPress={() => setShowConfirm(false)}
+              >
                 <Text>Cancel</Text>
               </TouchableOpacity>
 
@@ -176,7 +184,6 @@ const DepositScreen = ({ navigation }) => {
 
 export default DepositScreen;
 
-// ================= STYLES =================
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: "#fff" },
   header: { marginBottom: 20 },
