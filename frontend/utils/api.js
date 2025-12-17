@@ -1,4 +1,4 @@
-// utils/api.js
+// frontend/utils/api.js
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
@@ -76,15 +76,15 @@ export const fetchUser = () => api.get("/auth/me");
 export const refreshUserBalance = () => api.get("/wallet/balance");
 
 // -----------------------------------------------------------
-// WALLET + MONNIFY
+// WALLET
 // -----------------------------------------------------------
-export const createStaticAccount = () => api.get("/monnify/create-static-account");
-export const startMonnifyDeposit = (amount) =>
-  api.post("/wallet/initiate-monnify-payment", { amount });
-export const depositHistoryApi = () => api.get("/wallet/deposit-history");
-export const getDepositHistory = depositHistoryApi; // backward compatibility
+export const getDepositHistory = () => api.get("/wallet/deposit-history");
 export const getTransactions = () => api.get("/wallet/transactions");
 export const redeemRewards = () => api.post("/wallet/redeem");
+
+// Flutterwave verification endpoint
+export const verifyFlutterwavePayment = (transaction_id) =>
+  api.post("/wallet/verify-flutterwave", { transaction_id });
 
 // -----------------------------------------------------------
 // DATA PURCHASE

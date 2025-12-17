@@ -1,4 +1,4 @@
-//context/AuthContext
+//frontend/context/AuthContext
 import React, { createContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import api, { testBackendConnection } from "../utils/api";
