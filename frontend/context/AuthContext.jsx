@@ -1,4 +1,4 @@
-// frontend/context/AuthContext.jsx
+//frontend/context/AuthContext.jsx
 import React, { createContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import api, { testBackendConnection } from "../utils/api";
@@ -8,11 +8,12 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
+  const [refreshToken, setRefreshToken] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [depositHistory, setDepositHistory] = useState([]);
 
   /* ---------------------------------------------------------
-     1. Test backend connection once (safe)
+     1. Test backend connection once
   --------------------------------------------------------- */
   useEffect(() => {
     testBackendConnection();
@@ -25,25 +26,24 @@ export const AuthProvider = ({ children }) => {
     const loadUser = async () => {
       try {
         const storedToken = await AsyncStorage.getItem("userToken");
+        const storedRefresh = await AsyncStorage.getItem("refreshToken");
 
-        if (!storedToken) {
+        if (!storedToken || !storedRefresh) {
           setAuthLoading(false);
           return;
         }
 
         setToken(storedToken);
+        setRefreshToken(storedRefresh);
         api.defaults.headers.common.Authorization = `Bearer ${storedToken}`;
 
         const res = await api.get("/auth/me");
-
         if (res.data?.success) {
           setUser(res.data.user);
           await loadDepositHistory();
         }
       } catch (err) {
         console.log("Auth load error:", err.response?.data || err);
-
-        // 🔒 Invalid token → force logout
         await logout();
       } finally {
         setAuthLoading(false);
@@ -59,7 +59,6 @@ export const AuthProvider = ({ children }) => {
   const refreshUser = async () => {
     try {
       if (!token) return;
-
       const res = await api.get("/auth/me");
       if (res.data?.success) {
         setUser(res.data.user);
@@ -95,7 +94,18 @@ export const AuthProvider = ({ children }) => {
   };
 
   /* ---------------------------------------------------------
-     6. REGISTER
+     6. STORE TOKENS
+  --------------------------------------------------------- */
+  const storeTokens = async (newToken, newRefresh) => {
+    await AsyncStorage.setItem("userToken", newToken);
+    await AsyncStorage.setItem("refreshToken", newRefresh);
+    setToken(newToken);
+    setRefreshToken(newRefresh);
+    api.defaults.headers.common.Authorization = `Bearer ${newToken}`;
+  };
+
+  /* ---------------------------------------------------------
+     7. REGISTER
   --------------------------------------------------------- */
   const register = async (username, email, password, phoneNumber, birthDate) => {
     try {
@@ -107,161 +117,87 @@ export const AuthProvider = ({ children }) => {
         birthDate,
       });
 
-      const { token: newToken, refreshToken, user: newUser } = res.data;
+      const { token: newToken, refreshToken: newRefresh, user: newUser } = res.data;
 
-      await AsyncStorage.setItem("userToken", newToken);
-      if (refreshToken) {
-        await AsyncStorage.setItem("refreshToken", refreshToken);
-      }
-
-      api.defaults.headers.common.Authorization = `Bearer ${newToken}`;
-
-      setToken(newToken);
+      await storeTokens(newToken, newRefresh);
       setUser(newUser);
 
       return { success: true };
     } catch (err) {
-      return {
-        success: false,
-        error:
-          err.response?.data?.error ||
-          "Registration failed. Try again later.",
-      };
+      return { success: false, error: err.response?.data?.error || "Registration failed." };
     }
   };
 
   /* ---------------------------------------------------------
-     7. LOGIN
+     8. LOGIN
   --------------------------------------------------------- */
   const login = async (email, password) => {
     try {
       const res = await api.post("/auth/login", { email, password });
+      const { token: newToken, refreshToken: newRefresh, user: loggedInUser } = res.data;
 
-      const { token: newToken, refreshToken, user: loggedInUser } = res.data;
-
-      await AsyncStorage.setItem("userToken", newToken);
-      if (refreshToken) {
-        await AsyncStorage.setItem("refreshToken", refreshToken);
-      }
-
-      api.defaults.headers.common.Authorization = `Bearer ${newToken}`;
-
-      setToken(newToken);
+      await storeTokens(newToken, newRefresh);
       setUser(loggedInUser);
-
       await loadDepositHistory();
 
       return { success: true };
     } catch (err) {
-      return {
-        success: false,
-        error:
-          err.response?.data?.error ||
-          "Invalid login credentials.",
-      };
+      return { success: false, error: err.response?.data?.error || "Invalid credentials." };
     }
   };
 
   /* ---------------------------------------------------------
-     8. LOGOUT (hard reset)
+     9. LOGOUT (hard reset)
   --------------------------------------------------------- */
   const logout = async () => {
     await AsyncStorage.multiRemove(["userToken", "refreshToken"]);
     delete api.defaults.headers.common.Authorization;
-
     setToken(null);
+    setRefreshToken(null);
     setUser(null);
     setDepositHistory([]);
   };
 
   /* ---------------------------------------------------------
-     9. PASSWORD & EMAIL ACTIONS
+     10. REFRESH ACCESS TOKEN
   --------------------------------------------------------- */
-  const forgotPassword = async (email) => {
+  const refreshAccessToken = async () => {
+    if (!refreshToken) return logout();
+
     try {
-      await api.post("/auth/forgotpassword", { email });
-      return { success: true };
+      const res = await api.post("/auth/refresh", { refreshToken });
+      await AsyncStorage.setItem("userToken", res.data.accessToken);
+      setToken(res.data.accessToken);
+      api.defaults.headers.common.Authorization = `Bearer ${res.data.accessToken}`;
+      return res.data.accessToken;
     } catch (err) {
-      return {
-        success: false,
-        error:
-          err.response?.data?.error ||
-          "Unable to send reset mail.",
-      };
+      console.log("Refresh token failed:", err.response?.data || err);
+      await logout();
     }
   };
 
-  const resetPassword = async (tokenParam, newPassword) => {
-    try {
-      const res = await api.put(`/auth/resetpassword/${tokenParam}`, {
-        password: newPassword,
-      });
-
-      const { token: newToken, refreshToken } = res.data;
-
-      await AsyncStorage.setItem("userToken", newToken);
-      if (refreshToken) {
-        await AsyncStorage.setItem("refreshToken", refreshToken);
+  /* ---------------------------------------------------------
+     11. AXIOS INTERCEPTOR (Auto-refresh token)
+  --------------------------------------------------------- */
+  useEffect(() => {
+    const interceptor = api.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const originalRequest = error.config;
+        if (error.response?.status === 401 && !originalRequest._retry) {
+          originalRequest._retry = true;
+          const newToken = await refreshAccessToken();
+          if (newToken) {
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            return api(originalRequest);
+          }
+        }
+        return Promise.reject(error);
       }
+    );
 
-      api.defaults.headers.common.Authorization = `Bearer ${newToken}`;
-      setToken(newToken);
-
-      await refreshUser();
-
-      return { success: true };
-    } catch (err) {
-      return {
-        success: false,
-        error:
-          err.response?.data?.error ||
-          "Password reset failed.",
-      };
-    }
-  };
-
-  const sendVerificationEmail = async (email) => {
-    try {
-      const res = await api.post("/auth/verify-email", { email });
-      return { success: true, message: res.data.message };
-    } catch (err) {
-      return {
-        success: false,
-        error:
-          err.response?.data?.error ||
-          "Failed to send verification mail.",
-      };
-    }
-  };
-
-  const confirmVerification = async (verifyToken) => {
-    try {
-      const res = await api.get(
-        `/auth/confirm-verification/${verifyToken}`
-      );
-
-      const { jwt, refreshToken, user: verifiedUser } = res.data;
-
-      await AsyncStorage.setItem("userToken", jwt);
-      if (refreshToken) {
-        await AsyncStorage.setItem("refreshToken", refreshToken);
-      }
-
-      api.defaults.headers.common.Authorization = `Bearer ${jwt}`;
-
-      setToken(jwt);
-      setUser(verifiedUser);
-
-      return { success: true };
-    } catch (err) {
-      return {
-        success: false,
-        error:
-          err.response?.data?.error ||
-          "Verification failed.",
-      };
-    }
-  };
+    return () => api.interceptors.response.eject(interceptor);
+  }, [refreshToken]);
 
   /* ---------------------------------------------------------
      PROVIDER
@@ -280,12 +216,6 @@ export const AuthProvider = ({ children }) => {
         refreshUser,
         updateUser,
         setUser,
-
-        forgotPassword,
-        resetPassword,
-
-        sendVerificationEmail,
-        confirmVerification,
 
         loadDepositHistory,
       }}
