@@ -1,7 +1,6 @@
 // frontend/utils/api.js
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Platform } from "react-native";
 
 // 🌍 Validate Base URL from Expo Environment
 const BASE_URL = process.env.EXPO_PUBLIC_BASE_URL || "http://localhost:5000";
@@ -22,31 +21,105 @@ const api = axios.create({
 });
 
 // -----------------------------------------------------------
-// 🔐 Attach Token Automatically
+// 🔐 Attach access token automatically
 // -----------------------------------------------------------
 api.interceptors.request.use(async (config) => {
   const token = await AsyncStorage.getItem("userToken");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
   return config;
 });
 
 // -----------------------------------------------------------
-// 🚫 Global Error Handler
+// 🔄 Token refresh mechanism (safe for concurrency)
+// -----------------------------------------------------------
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach((promise) => {
+    if (error) promise.reject(error);
+    else promise.resolve(token);
+  });
+  failedQueue = [];
+};
+
+// -----------------------------------------------------------
+// 🚫 Global response interceptor
 // -----------------------------------------------------------
 api.interceptors.response.use(
-  (res) => res,
+  (response) => response,
   async (error) => {
-    if (error.response?.status === 401) {
-      console.warn("🚫 401 Unauthorized — clearing token...");
-      await AsyncStorage.removeItem("userToken");
-    }
+    const originalRequest = error.config;
 
+    // -------------------------------------------------------
+    // 🌐 Network & timeout errors
+    // -------------------------------------------------------
     if (error.message === "Network Error") {
-      console.error("❌ Network Error — check backend or internet.");
+      console.error("❌ Network Error — backend unreachable");
+      return Promise.reject(error);
     }
 
     if (error.code === "ECONNABORTED") {
-      console.error("⏰ Server timeout");
+      console.error("⏰ Request timeout");
+      return Promise.reject(error);
+    }
+
+    // -------------------------------------------------------
+    // 🔁 Handle expired access token (401)
+    // -------------------------------------------------------
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry
+    ) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return api(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const refreshToken = await AsyncStorage.getItem("refreshToken");
+
+        if (!refreshToken) {
+          throw new Error("No refresh token available");
+        }
+
+        const res = await axios.post(
+          `${BASE_URL}/api/v1/auth/refresh`,
+          { refreshToken }
+        );
+
+        const newAccessToken = res.data.accessToken;
+
+        await AsyncStorage.setItem("userToken", newAccessToken);
+
+        api.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+
+        processQueue(null, newAccessToken);
+
+        return api(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+
+        // ❌ Refresh failed → force logout
+        await AsyncStorage.multiRemove(["userToken", "refreshToken"]);
+        delete api.defaults.headers.common.Authorization;
+
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
     }
 
     return Promise.reject(error);
@@ -54,7 +127,7 @@ api.interceptors.response.use(
 );
 
 // -----------------------------------------------------------
-// TEST BACKEND CONNECTION
+// 🔌 TEST BACKEND CONNECTION
 // -----------------------------------------------------------
 export const testBackendConnection = async () => {
   try {
@@ -73,18 +146,22 @@ export const testBackendConnection = async () => {
 export const loginUser = (payload) => api.post("/auth/login", payload);
 export const registerUser = (payload) => api.post("/auth/register", payload);
 export const fetchUser = () => api.get("/auth/me");
-export const refreshUserBalance = () => api.get("/wallet/balance");
 
 // -----------------------------------------------------------
 // WALLET
 // -----------------------------------------------------------
+export const refreshUserBalance = () => api.get("/wallet/balance");
 export const getDepositHistory = () => api.get("/wallet/deposit-history");
 export const getTransactions = () => api.get("/wallet/transactions");
 export const redeemRewards = () => api.post("/wallet/redeem");
 
-// Flutterwave verification endpoint
 export const verifyFlutterwavePayment = (transaction_id) =>
   api.post("/wallet/verify-flutterwave", { transaction_id });
+
+export const getWithdrawalHistoryApi = async () => {
+  const res = await api.get("/wallet/withdraw-history");
+  return res.data;
+};
 
 // -----------------------------------------------------------
 // DATA PURCHASE
@@ -100,16 +177,26 @@ export const buyData = async (payload) => {
     };
   }
 };
+
 export const getDataPurchaseHistory = () => api.get("/data/history");
 
 // -----------------------------------------------------------
 // GAMES
 // -----------------------------------------------------------
-export const playDailyGame = (numbers) => api.post("/game/daily/play", { numbers });
-export const getDailyResult = () => api.get("/game/daily/result");
-export const playWeeklyGame = (numbers) => api.post("/game/weekly/play", { numbers });
-export const getWeeklyResult = () => api.get("/game/weekly/result");
-export const getGameTickets = () => api.get("/game/tickets");
+export const playDailyGame = (numbers) =>
+  api.post("/game/daily/play", { numbers });
+
+export const getDailyResult = () =>
+  api.get("/game/daily/result");
+
+export const playWeeklyGame = (numbers) =>
+  api.post("/game/weekly/play", { numbers });
+
+export const getWeeklyResult = () =>
+  api.get("/game/weekly/result");
+
+export const getGameTickets = () =>
+  api.get("/game/tickets");
 
 // -----------------------------------------------------------
 // LEADERBOARD
@@ -124,31 +211,26 @@ export const getLeaderboard = async () => {
   }
 };
 
-// Withdrawal history
-export const getWithdrawalHistoryApi = async () => {
-  const res = await api.get("/wallet/withdraw-history");
-  return res.data;
-};
-
 // -----------------------------------------------------------
 // USER PROFILE
 // -----------------------------------------------------------
-export const updateUserProfile = (payload) => api.put("/user/update-profile", payload);
+export const updateUserProfile = (payload) =>
+  api.put("/user/update-profile", payload);
 
-/**
- * Upload avatar image
- * @param {FormData} formData
- */
 export const updateAvatar = async (formData) => {
   try {
     const token = await AsyncStorage.getItem("userToken");
 
-    const res = await axios.put(`${BASE_URL}/api/v1/user/update-avatar`, formData, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        // DO NOT set Content-Type manually for multipart/form-data
-      },
-    });
+    const res = await axios.put(
+      `${BASE_URL}/api/v1/user/update-avatar`,
+      formData,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          // Do NOT set Content-Type manually
+        },
+      }
+    );
 
     return res.data;
   } catch (err) {

@@ -1,3 +1,4 @@
+// frontend/app/depositScreen.jsx
 import React, { useState, useContext, useRef } from "react";
 import {
   View,
@@ -26,10 +27,10 @@ const DepositScreen = ({ navigation }) => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState("idle"); // idle | pending | success | failed
   const [activeTxRef, setActiveTxRef] = useState(null);
+  const [backendTxRef, setBackendTxRef] = useState(null);
 
   const pollTimer = useRef(null);
   const pollStartTime = useRef(null);
-
   const toastAnim = useRef(new Animated.Value(-120)).current;
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
@@ -61,13 +62,7 @@ const DepositScreen = ({ navigation }) => {
   const totalAmount = enteredAmount + SERVICE_CHARGE;
   const isValidAmount = () => !isNaN(Number(amount)) && Number(amount) > 0;
 
-  /* ---------------- TX REF ---------------- */
-  const generateTransactionRef = () => {
-    if (!user?._id) throw new Error("User not authenticated");
-    return `flw_${user._id}_${Date.now()}`;
-  };
-
-  /* ---------------- POLLING FALLBACK ---------------- */
+  /* ---------------- POLLING ---------------- */
   const stopPolling = () => {
     if (pollTimer.current) {
       clearInterval(pollTimer.current);
@@ -108,7 +103,24 @@ const DepositScreen = ({ navigation }) => {
     }, POLL_INTERVAL);
   };
 
-  /* ---------------- VERIFY REDIRECT ---------------- */
+  /* ---------------- INITIATE PAYMENT ---------------- */
+  const handleInitiatePayment = async () => {
+    if (!isValidAmount()) return;
+    try {
+      const res = await api.post("/wallet/initiate-flutterwave", { amount: totalAmount });
+      if (res.data.success) {
+        setBackendTxRef(res.data.tx_ref);
+        setShowConfirm(true);
+      } else {
+        showToast(res.data.message || "Failed to initiate payment", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to initiate payment", "error");
+    }
+  };
+
+  /* ---------------- HANDLE REDIRECT ---------------- */
   const handleOnRedirect = async (data) => {
     setShowConfirm(false);
 
@@ -196,9 +208,12 @@ const DepositScreen = ({ navigation }) => {
       </View>
 
       <TouchableOpacity
-        style={[styles.payButton, (!isValidAmount() || paymentStatus === "pending") && { opacity: 0.6 }]}
+        style={[
+          styles.payButton,
+          (!isValidAmount() || paymentStatus === "pending") && { opacity: 0.6 },
+        ]}
         disabled={!isValidAmount() || paymentStatus === "pending"}
-        onPress={() => setShowConfirm(true)}
+        onPress={handleInitiatePayment}
       >
         <Text style={styles.payText}>
           {paymentStatus === "pending" ? "Processing…" : `Pay ₦${totalAmount}`}
@@ -209,7 +224,6 @@ const DepositScreen = ({ navigation }) => {
         <View style={styles.modalBackdrop}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Confirm Payment</Text>
-
             <Text>Amount: ₦{enteredAmount}</Text>
             <Text>Total: ₦{totalAmount}</Text>
 
@@ -221,21 +235,23 @@ const DepositScreen = ({ navigation }) => {
                 <Text>Cancel</Text>
               </TouchableOpacity>
 
-              <PayWithFlutterwave
-                options={{
-                  tx_ref: generateTransactionRef(),
-                  authorization: process.env.EXPO_PUBLIC_FLUTTERWAVE_KEY,
-                  customer: { email: user?.email, phonenumber: user?.phoneNumber, name: user?.username },
-                  amount: totalAmount,
-                  currency: "NGN",
-                }}
-                onRedirect={handleOnRedirect}
-                customButton={(props) => (
-                  <TouchableOpacity style={styles.modalButton} onPress={props.onPress}>
-                    <Text style={{ color: "#fff" }}>Confirm & Pay</Text>
-                  </TouchableOpacity>
-                )}
-              />
+              {backendTxRef && (
+                <PayWithFlutterwave
+                  options={{
+                    tx_ref: backendTxRef,
+                    authorization: process.env.EXPO_PUBLIC_FLUTTERWAVE_KEY,
+                    customer: { email: user?.email, phonenumber: user?.phoneNumber, name: user?.username },
+                    amount: totalAmount,
+                    currency: "NGN",
+                  }}
+                  onRedirect={handleOnRedirect}
+                  customButton={(props) => (
+                    <TouchableOpacity style={styles.modalButton} onPress={props.onPress}>
+                      <Text style={{ color: "#fff" }}>Confirm & Pay</Text>
+                    </TouchableOpacity>
+                  )}
+                />
+              )}
             </View>
           </View>
         </View>

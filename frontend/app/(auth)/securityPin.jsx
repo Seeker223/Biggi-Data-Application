@@ -1,3 +1,4 @@
+//frontend/app/%28auth%29/securityPin.jsx
 import React, { useState } from "react";
 import {
   View,

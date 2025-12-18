@@ -1,3 +1,4 @@
+// frontend/context/AuthContext.jsx
 import React, { createContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import api, { testBackendConnection } from "../utils/api";
@@ -11,7 +12,7 @@ export const AuthProvider = ({ children }) => {
   const [depositHistory, setDepositHistory] = useState([]);
 
   /* ---------------------------------------------------------
-     1. Test backend connection once
+     1. Test backend connection once (safe)
   --------------------------------------------------------- */
   useEffect(() => {
     testBackendConnection();
@@ -24,23 +25,26 @@ export const AuthProvider = ({ children }) => {
     const loadUser = async () => {
       try {
         const storedToken = await AsyncStorage.getItem("userToken");
+
         if (!storedToken) {
           setAuthLoading(false);
           return;
         }
 
         setToken(storedToken);
-        api.defaults.headers.common["Authorization"] = `Bearer ${storedToken}`;
+        api.defaults.headers.common.Authorization = `Bearer ${storedToken}`;
 
         const res = await api.get("/auth/me");
-        if (res.data.success) {
-          setUser(res.data.user);
-        }
 
-        // Load deposit history
-        await loadDepositHistory();
+        if (res.data?.success) {
+          setUser(res.data.user);
+          await loadDepositHistory();
+        }
       } catch (err) {
         console.log("Auth load error:", err.response?.data || err);
+
+        // 🔒 Invalid token → force logout
+        await logout();
       } finally {
         setAuthLoading(false);
       }
@@ -50,16 +54,17 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   /* ---------------------------------------------------------
-     3. Refresh user (after deposit, withdraw, tickets, etc.)
+     3. Refresh user (after deposit, withdraw, games, etc.)
   --------------------------------------------------------- */
   const refreshUser = async () => {
     try {
       if (!token) return;
-      const res = await api.get("/auth/me");
-      if (res.data.success) setUser(res.data.user);
 
-      // Refresh deposit history automatically
-      await loadDepositHistory();
+      const res = await api.get("/auth/me");
+      if (res.data?.success) {
+        setUser(res.data.user);
+        await loadDepositHistory();
+      }
     } catch (err) {
       console.log("Refresh user error:", err.response?.data || err);
     }
@@ -71,10 +76,11 @@ export const AuthProvider = ({ children }) => {
   const loadDepositHistory = async () => {
     try {
       const res = await api.get("/wallet/deposit-history");
-      if (res.data.success) {
+      if (res.data?.success) {
         setDepositHistory(res.data.deposits || []);
         return res.data.deposits;
       }
+      return [];
     } catch (err) {
       console.log("Deposit history error:", err.response?.data || err);
       return [];
@@ -82,13 +88,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   /* ---------------------------------------------------------
-     5. Update user locally (used for tickets, balance, etc.)
+     5. Update user locally
   --------------------------------------------------------- */
   const updateUser = (updates) => {
-    setUser((prev) => ({
-      ...prev,
-      ...updates,
-    }));
+    setUser((prev) => ({ ...prev, ...updates }));
   };
 
   /* ---------------------------------------------------------
@@ -104,10 +107,14 @@ export const AuthProvider = ({ children }) => {
         birthDate,
       });
 
-      const { token: newToken, user: newUser } = res.data;
+      const { token: newToken, refreshToken, user: newUser } = res.data;
 
       await AsyncStorage.setItem("userToken", newToken);
-      api.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
+      if (refreshToken) {
+        await AsyncStorage.setItem("refreshToken", refreshToken);
+      }
+
+      api.defaults.headers.common.Authorization = `Bearer ${newToken}`;
 
       setToken(newToken);
       setUser(newUser);
@@ -116,7 +123,9 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       return {
         success: false,
-        error: err.response?.data?.error || "Registration failed. Try again later.",
+        error:
+          err.response?.data?.error ||
+          "Registration failed. Try again later.",
       };
     }
   };
@@ -127,39 +136,46 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const res = await api.post("/auth/login", { email, password });
-      const { token: newToken, user: loggedInUser } = res.data;
+
+      const { token: newToken, refreshToken, user: loggedInUser } = res.data;
 
       await AsyncStorage.setItem("userToken", newToken);
-      api.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
+      if (refreshToken) {
+        await AsyncStorage.setItem("refreshToken", refreshToken);
+      }
+
+      api.defaults.headers.common.Authorization = `Bearer ${newToken}`;
 
       setToken(newToken);
       setUser(loggedInUser);
 
-      // Load deposit history after login
       await loadDepositHistory();
 
       return { success: true };
     } catch (err) {
       return {
         success: false,
-        error: err.response?.data?.error || "Invalid login credentials.",
+        error:
+          err.response?.data?.error ||
+          "Invalid login credentials.",
       };
     }
   };
 
   /* ---------------------------------------------------------
-     8. LOGOUT
+     8. LOGOUT (hard reset)
   --------------------------------------------------------- */
   const logout = async () => {
-    await AsyncStorage.removeItem("userToken");
-    delete api.defaults.headers.common["Authorization"];
+    await AsyncStorage.multiRemove(["userToken", "refreshToken"]);
+    delete api.defaults.headers.common.Authorization;
+
     setToken(null);
     setUser(null);
     setDepositHistory([]);
   };
 
   /* ---------------------------------------------------------
-     9. OTHER AUTH METHODS (forgot/reset password, verify email)
+     9. PASSWORD & EMAIL ACTIONS
   --------------------------------------------------------- */
   const forgotPassword = async (email) => {
     try {
@@ -168,27 +184,38 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       return {
         success: false,
-        error: err.response?.data?.error || "Unable to send reset mail.",
+        error:
+          err.response?.data?.error ||
+          "Unable to send reset mail.",
       };
     }
   };
 
   const resetPassword = async (tokenParam, newPassword) => {
     try {
-      const res = await api.put(`/auth/resetpassword/${tokenParam}`, { password: newPassword });
-      const { newToken } = res.data;
+      const res = await api.put(`/auth/resetpassword/${tokenParam}`, {
+        password: newPassword,
+      });
+
+      const { token: newToken, refreshToken } = res.data;
 
       await AsyncStorage.setItem("userToken", newToken);
-      api.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
+      if (refreshToken) {
+        await AsyncStorage.setItem("refreshToken", refreshToken);
+      }
 
+      api.defaults.headers.common.Authorization = `Bearer ${newToken}`;
       setToken(newToken);
+
       await refreshUser();
 
       return { success: true };
     } catch (err) {
       return {
         success: false,
-        error: err.response?.data?.error || "Password reset failed.",
+        error:
+          err.response?.data?.error ||
+          "Password reset failed.",
       };
     }
   };
@@ -198,29 +225,46 @@ export const AuthProvider = ({ children }) => {
       const res = await api.post("/auth/verify-email", { email });
       return { success: true, message: res.data.message };
     } catch (err) {
-      return { success: false, error: err.response?.data?.error || "Failed to send verification mail." };
+      return {
+        success: false,
+        error:
+          err.response?.data?.error ||
+          "Failed to send verification mail.",
+      };
     }
   };
 
   const confirmVerification = async (verifyToken) => {
     try {
-      const res = await api.get(`/auth/confirm-verification/${verifyToken}`);
-      const { jwt, user: verifiedUser } = res.data;
+      const res = await api.get(
+        `/auth/confirm-verification/${verifyToken}`
+      );
+
+      const { jwt, refreshToken, user: verifiedUser } = res.data;
 
       await AsyncStorage.setItem("userToken", jwt);
-      api.defaults.headers.common["Authorization"] = `Bearer ${jwt}`;
+      if (refreshToken) {
+        await AsyncStorage.setItem("refreshToken", refreshToken);
+      }
+
+      api.defaults.headers.common.Authorization = `Bearer ${jwt}`;
 
       setToken(jwt);
       setUser(verifiedUser);
 
       return { success: true };
     } catch (err) {
-      return { success: false, error: err.response?.data?.error || "Verification failed." };
+      return {
+        success: false,
+        error:
+          err.response?.data?.error ||
+          "Verification failed.",
+      };
     }
   };
 
   /* ---------------------------------------------------------
-     PROVIDER EXPORT
+     PROVIDER
   --------------------------------------------------------- */
   return (
     <AuthContext.Provider
@@ -243,7 +287,7 @@ export const AuthProvider = ({ children }) => {
         sendVerificationEmail,
         confirmVerification,
 
-        loadDepositHistory, // manually refresh if needed
+        loadDepositHistory,
       }}
     >
       {children}
