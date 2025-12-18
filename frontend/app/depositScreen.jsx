@@ -15,10 +15,10 @@ import { PayWithFlutterwave } from "flutterwave-react-native";
 import { AuthContext } from "../context/AuthContext";
 import api from "../utils/api";
 
-const SERVICE_CHARGE = 100;
+const SERVICE_CHARGE = 0;
 
 const DepositScreen = ({ navigation }) => {
-  const { user, refreshUser, loadDepositHistory } = useContext(AuthContext);
+  const { user, refreshUser, getDepositHistory } = useContext(AuthContext);
 
   const [amount, setAmount] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
@@ -28,15 +28,18 @@ const DepositScreen = ({ navigation }) => {
   const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState("info");
 
+  /* ---------------- TOAST ---------------- */
   const showToast = (msg, type = "info") => {
     setToastMessage(msg);
     setToastType(type);
     setToastVisible(true);
+
     Animated.timing(toastAnim, {
       toValue: Platform.OS === "ios" ? 48 : 20,
       duration: 300,
       useNativeDriver: true,
     }).start();
+
     setTimeout(() => {
       Animated.timing(toastAnim, {
         toValue: -120,
@@ -46,22 +49,24 @@ const DepositScreen = ({ navigation }) => {
     }, 3000);
   };
 
-  const enteredAmount = isNaN(Number(amount)) || Number(amount) < 0 ? 0 : Number(amount);
+  const enteredAmount =
+    isNaN(Number(amount)) || Number(amount) <= 0 ? 0 : Number(amount);
   const totalAmount = enteredAmount + SERVICE_CHARGE;
 
-  const isValidAmount = () => !isNaN(Number(amount)) && Number(amount) >= 100;
+  const isValidAmount = () => !isNaN(Number(amount)) && Number(amount) > 0;
 
-  const generateTransactionRef = (length = 10) => {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    let ref = "";
-    for (let i = 0; i < length; i++) ref += chars.charAt(Math.floor(Math.random() * chars.length));
-    return `flw_tx_ref_${ref}`;
+  /* ---------------- TX REF ---------------- */
+  const generateTransactionRef = () => {
+    return `flw_tx_ref_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
   };
 
+  /* ---------------- VERIFY PAYMENT ---------------- */
   const handleOnRedirect = async (data) => {
     setShowConfirm(false);
 
-    if (data?.status !== "successful" || !data.transaction_id) {
+    console.log("Flutterwave redirect data:", data);
+
+    if (data?.status !== "successful") {
       showToast("Payment cancelled", "error");
       return;
     }
@@ -69,23 +74,22 @@ const DepositScreen = ({ navigation }) => {
     try {
       showToast("Verifying payment...", "info");
 
-      const result = await api.post("/wallet/verify-flutterwave", {
-        transaction_id: data.transaction_id,
+      const res = await api.post("/wallet/verify-flutterwave", {
+        tx_ref: data.tx_ref,
       });
 
-      if (result.data.success) {
+      if (res.data.success) {
         showToast("Wallet credited successfully", "success");
         setAmount("");
 
-        // Refresh wallet balance and deposit history
         await refreshUser();
-        await loadDepositHistory();
+        if (getDepositHistory) await getDepositHistory();
       } else {
-        showToast(result.data.message || "Verification failed", "error");
+        showToast(res.data.message || "Verification failed", "error");
       }
     } catch (err) {
-      console.error("Verification error:", err);
-      showToast("Network error. Try again.", "error");
+      console.error("Verification error:", err.response?.data || err);
+      showToast("Verification failed. Contact support.", "error");
     }
   };
 
@@ -98,7 +102,11 @@ const DepositScreen = ({ navigation }) => {
             {
               transform: [{ translateY: toastAnim }],
               backgroundColor:
-                toastType === "error" ? "#ff5252" : toastType === "success" ? "#28a745" : "#333",
+                toastType === "error"
+                  ? "#ff5252"
+                  : toastType === "success"
+                  ? "#28a745"
+                  : "#333",
             },
           ]}
         >
@@ -106,6 +114,7 @@ const DepositScreen = ({ navigation }) => {
         </Animated.View>
       )}
 
+      {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={26} color="#000" />
@@ -123,27 +132,35 @@ const DepositScreen = ({ navigation }) => {
 
       <View style={styles.breakdown}>
         <Text style={styles.breakdownText}>Amount: ₦{enteredAmount}</Text>
-        <Text style={styles.breakdownText}>Service Charge: ₦{SERVICE_CHARGE}</Text>
+        <Text style={styles.breakdownText}>
+          Service Charge: ₦{SERVICE_CHARGE}
+        </Text>
         <Text style={styles.breakdownTextBold}>Total: ₦{totalAmount}</Text>
       </View>
 
       {isValidAmount() ? (
-        <TouchableOpacity style={styles.payButton} onPress={() => setShowConfirm(true)}>
-          <Text style={styles.payText}>Pay ₦{totalAmount} (incl. ₦{SERVICE_CHARGE})</Text>
+        <TouchableOpacity
+          style={styles.payButton}
+          onPress={() => setShowConfirm(true)}
+        >
+          <Text style={styles.payText}>Pay ₦{totalAmount}</Text>
         </TouchableOpacity>
       ) : (
         <TouchableOpacity style={[styles.payButton, { opacity: 0.6 }]} disabled>
-          <Text style={styles.payText}>Enter valid amount (₦100+)</Text>
+          <Text style={styles.payText}>Enter valid amount</Text>
         </TouchableOpacity>
       )}
 
-      {/* CONFIRMATION MODAL */}
+      {/* CONFIRM MODAL */}
       <Modal transparent visible={showConfirm} animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Confirm Payment</Text>
+
             <Text style={styles.modalText}>Amount: ₦{enteredAmount}</Text>
-            <Text style={styles.modalText}>Service Charge: ₦{SERVICE_CHARGE}</Text>
+            <Text style={styles.modalText}>
+              Service Charge: ₦{SERVICE_CHARGE}
+            </Text>
             <Text style={styles.modalTextBold}>Total: ₦{totalAmount}</Text>
 
             <View style={styles.modalButtons}>
@@ -157,8 +174,13 @@ const DepositScreen = ({ navigation }) => {
               <PayWithFlutterwave
                 options={{
                   tx_ref: generateTransactionRef(),
-                  authorization: process.env.EXPO_PUBLIC_FLUTTERWAVE_KEY,
-                  customer: { email: user?.email, phonenumber: user?.phone, name: user?.username },
+                  authorization:
+                    process.env.EXPO_PUBLIC_FLUTTERWAVE_KEY,
+                  customer: {
+                    email: user?.email,
+                    phonenumber: user?.phoneNumber,
+                    name: user?.username,
+                  },
                   amount: totalAmount,
                   currency: "NGN",
                   payment_options: "card,banktransfer,ussd",
@@ -184,23 +206,65 @@ const DepositScreen = ({ navigation }) => {
 
 export default DepositScreen;
 
+/* ---------------- STYLES ---------------- */
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: "#fff" },
   header: { marginBottom: 20 },
   label: { color: "#555", marginBottom: 8 },
-  input: { backgroundColor: "#E5E5E5", borderRadius: 12, padding: 15, marginBottom: 15 },
-  breakdown: { marginBottom: 15, padding: 12, backgroundColor: "#F5F5F5", borderRadius: 10 },
+  input: {
+    backgroundColor: "#E5E5E5",
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 15,
+  },
+  breakdown: {
+    marginBottom: 15,
+    padding: 12,
+    backgroundColor: "#F5F5F5",
+    borderRadius: 10,
+  },
   breakdownText: { fontSize: 16, marginBottom: 4 },
   breakdownTextBold: { fontSize: 18, fontWeight: "700" },
-  payButton: { backgroundColor: "#FF7A00", padding: 15, borderRadius: 12, alignItems: "center" },
+  payButton: {
+    backgroundColor: "#FF7A00",
+    padding: 15,
+    borderRadius: 12,
+    alignItems: "center",
+  },
   payText: { color: "#fff", fontWeight: "700" },
-  toast: { position: "absolute", left: 20, right: 20, top: 0, padding: 12, borderRadius: 10, zIndex: 1000 },
+  toast: {
+    position: "absolute",
+    left: 20,
+    right: 20,
+    top: 0,
+    padding: 12,
+    borderRadius: 10,
+    zIndex: 1000,
+  },
   toastText: { color: "#fff", textAlign: "center" },
-  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" },
-  modalContent: { backgroundColor: "#fff", padding: 20, borderRadius: 12, width: "80%" },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 12,
+    width: "85%",
+  },
   modalTitle: { fontSize: 18, fontWeight: "700", marginBottom: 10 },
   modalText: { fontSize: 16 },
   modalTextBold: { fontSize: 18, fontWeight: "700", marginBottom: 12 },
-  modalButtons: { flexDirection: "row", justifyContent: "space-between" },
-  modalButton: { backgroundColor: "#FF7A00", padding: 12, borderRadius: 12, marginHorizontal: 5 },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  modalButton: {
+    backgroundColor: "#FF7A00",
+    padding: 12,
+    borderRadius: 12,
+    marginHorizontal: 5,
+  },
 });
