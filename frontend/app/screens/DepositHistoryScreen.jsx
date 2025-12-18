@@ -9,6 +9,8 @@ import {
 } from "react-native";
 import { depositHistoryApi } from "../../utils/api";
 
+const POLL_INTERVAL = 10000; // 10 seconds
+
 const DepositHistoryScreen = () => {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,6 +33,13 @@ const DepositHistoryScreen = () => {
 
   useEffect(() => {
     loadHistory();
+
+    // Auto-refresh / polling for pending deposits
+    const interval = setInterval(() => {
+      loadHistory();
+    }, POLL_INTERVAL);
+
+    return () => clearInterval(interval);
   }, []);
 
   const onRefresh = useCallback(() => {
@@ -42,30 +51,19 @@ const DepositHistoryScreen = () => {
   // RENDER EACH TRANSACTION ITEM
   // ---------------------------------------------------------
   const renderItem = ({ item }) => {
+    let statusStyle = styles.pending;
+    if (item.status === "success") statusStyle = styles.success;
+    else if (item.status === "failed" || item.status === "reversed") statusStyle = styles.failed;
+
     return (
       <View style={styles.itemContainer}>
         <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
           <Text style={styles.amountText}>₦{item.amount}</Text>
-
-          <Text
-            style={[
-              styles.status,
-              item.status === "success"
-                ? styles.success
-                : styles.pending,
-            ]}
-          >
-            {item.status.toUpperCase()}
-          </Text>
+          <Text style={[styles.status, statusStyle]}>{item.status.toUpperCase()}</Text>
         </View>
 
-        <Text style={styles.meta}>
-          Method: {item.method || "Monnify"}
-        </Text>
-
-        <Text style={styles.date}>
-          {new Date(item.createdAt).toLocaleString()}
-        </Text>
+        <Text style={styles.meta}>Method: {item.method || "Flutterwave"}</Text>
+        <Text style={styles.date}>{new Date(item.createdAt).toLocaleString()}</Text>
       </View>
     );
   };
@@ -76,7 +74,7 @@ const DepositHistoryScreen = () => {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color="#FF7A00" />
         <Text style={{ marginTop: 10 }}>Loading deposit history...</Text>
       </View>
     );
@@ -102,9 +100,7 @@ const DepositHistoryScreen = () => {
       data={history}
       keyExtractor={(item) => item._id}
       renderItem={renderItem}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       contentContainerStyle={{ padding: 15 }}
     />
   );
@@ -116,11 +112,7 @@ export default DepositHistoryScreen;
 // STYLES
 // ---------------------------------------------------------
 const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
   itemContainer: {
     padding: 15,
     backgroundColor: "#fff",
@@ -132,133 +124,13 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     shadowOffset: { width: 0, height: 2 },
   },
-  amountText: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  meta: {
-    marginTop: 6,
-    fontSize: 13,
-    color: "#444",
-  },
-  date: {
-    marginTop: 3,
-    fontSize: 12,
-    color: "#777",
-  },
-  status: {
-    fontWeight: "bold",
-    fontSize: 12,
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-    borderRadius: 5,
-  },
-  success: {
-    backgroundColor: "#D4F8D4",
-    color: "#0A8917",
-  },
-  pending: {
-    backgroundColor: "#FFECC7",
-    color: "#A66B00",
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  emptySub: {
-    marginTop: 5,
-    fontSize: 14,
-    color: "#666",
-  },
+  amountText: { fontSize: 18, fontWeight: "700" },
+  meta: { marginTop: 6, fontSize: 13, color: "#444" },
+  date: { marginTop: 3, fontSize: 12, color: "#777" },
+  status: { fontWeight: "bold", fontSize: 12, paddingVertical: 2, paddingHorizontal: 8, borderRadius: 5 },
+  success: { backgroundColor: "#D4F8D4", color: "#0A8917" },
+  pending: { backgroundColor: "#FFECC7", color: "#A66B00" },
+  failed: { backgroundColor: "#FFCDD2", color: "#B00020" },
+  emptyText: { fontSize: 18, fontWeight: "600" },
+  emptySub: { marginTop: 5, fontSize: 14, color: "#666" },
 });
-// Ui design 2
-// import React, { useEffect, useState, useContext } from "react";
-// import { View, Text, FlatList, ActivityIndicator } from "react-native";
-// import { AuthContext } from "../context/AuthContext";
-
-// export default function DepositHistoryScreen() {
-//   const { getDepositHistory } = useContext(AuthContext);
-
-//   const [loading, setLoading] = useState(true);
-//   const [history, setHistory] = useState([]);
-
-//   const loadHistory = async () => {
-//     setLoading(true);
-//     const data = await getDepositHistory();
-//     setHistory(data);
-//     setLoading(false);
-//   };
-
-//   useEffect(() => {
-//     loadHistory();
-
-//     // auto-refresh every 10 seconds
-//     const interval = setInterval(loadHistory, 10000);
-//     return () => clearInterval(interval);
-//   }, []);
-
-//   const renderItem = ({ item }) => (
-//     <View
-//       style={{
-//         backgroundColor: "#fff",
-//         padding: 15,
-//         marginVertical: 6,
-//         marginHorizontal: 12,
-//         borderRadius: 10,
-//         borderWidth: 0.5,
-//         borderColor: "#ddd",
-//       }}
-//     >
-//       <Text style={{ fontSize: 16, fontWeight: "600" }}>
-//         ₦{item.amount}
-//       </Text>
-
-//       <Text
-//         style={{
-//           fontSize: 14,
-//           color: item.status === "successful" ? "green" : "orange",
-//           marginTop: 3,
-//         }}
-//       >
-//         {item.status.toUpperCase()}
-//       </Text>
-
-//       <Text style={{ marginTop: 4, color: "#555" }}>
-//         Ref: {item.reference}
-//       </Text>
-
-//       <Text style={{ marginTop: 4, color: "#777", fontSize: 12 }}>
-//         {new Date(item.createdAt).toLocaleString()}
-//       </Text>
-//     </View>
-//   );
-
-//   if (loading) {
-//     return (
-//       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-//         <ActivityIndicator size="large" color="blue" />
-//         <Text style={{ marginTop: 10 }}>Loading deposit history...</Text>
-//       </View>
-//     );
-//   }
-
-//   return (
-//     <FlatList
-//       data={history}
-//       keyExtractor={(item) => item._id}
-//       renderItem={renderItem}
-//       ListEmptyComponent={
-//         <Text
-//           style={{
-//             textAlign: "center",
-//             marginTop: 40,
-//             fontSize: 16,
-//             color: "#666",
-//           }}
-//         >
-//           No deposit activity yet.
-//         </Text>
-//       }
-//     />
-//   );
-// }
