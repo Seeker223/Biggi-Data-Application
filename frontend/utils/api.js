@@ -69,10 +69,7 @@ api.interceptors.response.use(
     // -------------------------------------------------------
     // 🔁 Handle expired access token (401)
     // -------------------------------------------------------
-    if (
-      error.response?.status === 401 &&
-      !originalRequest._retry
-    ) {
+    if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -89,7 +86,6 @@ api.interceptors.response.use(
 
       try {
         const refreshToken = await AsyncStorage.getItem("refreshToken");
-
         if (!refreshToken) {
           throw new Error("No refresh token available");
         }
@@ -152,11 +148,14 @@ export const fetchUser = () => api.get("/auth/me");
 // -----------------------------------------------------------
 export const refreshUserBalance = () => api.get("/wallet/balance");
 export const getDepositHistory = () => api.get("/wallet/deposit-history");
-export const getTransactions = () => api.get("/wallet/transactions");
-export const redeemRewards = () => api.post("/wallet/redeem");
 
-export const verifyFlutterwavePayment = (transaction_id) =>
-  api.post("/wallet/verify-flutterwave", { transaction_id });
+export const verifyFlutterwavePayment = (tx_ref) =>
+  api.post("/wallet/verify-flutterwave", { tx_ref });
+
+export const getDepositStatus = (tx_ref) =>
+  api.get(`/wallet/deposit-status/${tx_ref}`);
+
+export const redeemRewards = () => api.post("/wallet/redeem");
 
 export const getWithdrawalHistoryApi = async () => {
   const res = await api.get("/wallet/withdraw-history");
@@ -227,7 +226,7 @@ export const updateAvatar = async (formData) => {
       {
         headers: {
           Authorization: `Bearer ${token}`,
-          // Do NOT set Content-Type manually
+          // ❗ Do NOT set Content-Type manually (let Axios handle multipart)
         },
       }
     );

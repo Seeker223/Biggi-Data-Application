@@ -185,7 +185,6 @@ export const AuthProvider = ({ children }) => {
         token,
         authLoading,
         depositHistory,
-
         login,
         register,
         logout,
