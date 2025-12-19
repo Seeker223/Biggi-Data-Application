@@ -1,4 +1,3 @@
-// frontend/app/depositScreen.jsx
 import React, { useState, useContext, useRef } from "react";
 import {
   View,
@@ -16,25 +15,35 @@ import { PayWithFlutterwave } from "flutterwave-react-native";
 import { AuthContext } from "../context/AuthContext";
 import api from "../utils/api";
 
-const SERVICE_CHARGE = 0;
-const POLL_INTERVAL = 4000; // 4 seconds
-const POLL_TIMEOUT = 30000; // 30 seconds
+const SERVICE_CHARGE = 100;
+const POLL_INTERVAL = 4000;
+const POLL_TIMEOUT = 30000;
 
 const DepositScreen = ({ navigation }) => {
-  const { user, refreshUser, getDepositHistory } = useContext(AuthContext);
+  const { user, refreshUser, loadDepositHistory } = useContext(AuthContext);
 
   const [amount, setAmount] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
-  const [paymentStatus, setPaymentStatus] = useState("idle"); // idle | pending | success | failed
-  const [activeTxRef, setActiveTxRef] = useState(null);
+  const [paymentStatus, setPaymentStatus] = useState("idle");
   const [backendTxRef, setBackendTxRef] = useState(null);
 
   const pollTimer = useRef(null);
   const pollStartTime = useRef(null);
+
   const toastAnim = useRef(new Animated.Value(-120)).current;
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState("info");
+
+  /* ---------------- ERROR HELPER ---------------- */
+  const extractErrorMessage = (err, fallback = "Something went wrong") => {
+    return (
+      err?.response?.data?.message ||
+      err?.response?.data?.error ||
+      err?.message ||
+      fallback
+    );
+  };
 
   /* ---------------- TOAST ---------------- */
   const showToast = (msg, type = "info") => {
@@ -54,13 +63,17 @@ const DepositScreen = ({ navigation }) => {
         duration: 300,
         useNativeDriver: true,
       }).start(() => setToastVisible(false));
-    }, 3000);
+    }, 3500);
   };
 
   /* ---------------- AMOUNT ---------------- */
-  const enteredAmount = isNaN(Number(amount)) || Number(amount) <= 0 ? 0 : Number(amount);
+  const enteredAmount =
+    isNaN(Number(amount)) || Number(amount) <= 0 ? 0 : Number(amount);
+
   const totalAmount = enteredAmount + SERVICE_CHARGE;
-  const isValidAmount = () => !isNaN(Number(amount)) && Number(amount) > 0;
+
+  const isValidAmount = () =>
+    !isNaN(Number(amount)) && Number(amount) > 0;
 
   /* ---------------- POLLING ---------------- */
   const stopPolling = () => {
@@ -72,9 +85,9 @@ const DepositScreen = ({ navigation }) => {
 
   const startPolling = (tx_ref) => {
     pollStartTime.current = Date.now();
+
     pollTimer.current = setInterval(async () => {
-      const elapsed = Date.now() - pollStartTime.current;
-      if (elapsed > POLL_TIMEOUT) {
+      if (Date.now() - pollStartTime.current > POLL_TIMEOUT) {
         stopPolling();
         setPaymentStatus("failed");
         showToast("Payment confirmation timed out", "error");
@@ -82,23 +95,26 @@ const DepositScreen = ({ navigation }) => {
       }
 
       try {
-        const res = await api.get(`/wallet/deposit-status/${tx_ref}`);
-        if (res.data.status === "success") {
+        const deposits = await loadDepositHistory();
+        const deposit = deposits.find((d) => d.reference === tx_ref);
+
+        if (!deposit) return;
+
+        if (deposit.status === "successful") {
           stopPolling();
           setPaymentStatus("success");
-          showToast("Payment confirmed", "success");
+          showToast("Payment confirmed 🎉", "success");
           setAmount("");
           await refreshUser();
-          if (getDepositHistory) await getDepositHistory();
         }
 
-        if (res.data.status === "failed" || res.data.status === "reversed") {
+        if (deposit.status === "failed" || deposit.status === "reversed") {
           stopPolling();
           setPaymentStatus("failed");
           showToast("Payment failed or reversed", "error");
         }
       } catch (err) {
-        // silent retry
+        console.log("Polling error:", err);
       }
     }, POLL_INTERVAL);
   };
@@ -106,8 +122,12 @@ const DepositScreen = ({ navigation }) => {
   /* ---------------- INITIATE PAYMENT ---------------- */
   const handleInitiatePayment = async () => {
     if (!isValidAmount()) return;
+
     try {
-      const res = await api.post("/wallet/initiate-flutterwave", { amount: totalAmount });
+      const res = await api.post("/wallet/initiate-flutterwave", {
+        amount: totalAmount,
+      });
+
       if (res.data.success) {
         setBackendTxRef(res.data.tx_ref);
         setShowConfirm(true);
@@ -115,8 +135,8 @@ const DepositScreen = ({ navigation }) => {
         showToast(res.data.message || "Failed to initiate payment", "error");
       }
     } catch (err) {
-      console.error(err);
-      showToast("Failed to initiate payment", "error");
+      console.log("Initiate error:", err.response?.data || err);
+      showToast(extractErrorMessage(err, "Failed to initiate payment"), "error");
     }
   };
 
@@ -132,17 +152,18 @@ const DepositScreen = ({ navigation }) => {
 
     try {
       setPaymentStatus("pending");
-      setActiveTxRef(data.tx_ref);
       showToast("Payment processing...", "info");
 
-      await api.post("/wallet/verify-flutterwave", { tx_ref: data.tx_ref });
+      await api.post("/wallet/verify-flutterwave", {
+        tx_ref: data.tx_ref,
+      });
 
       showToast("Awaiting confirmation...", "info");
       startPolling(data.tx_ref);
     } catch (err) {
+      console.log("Verify error:", err.response?.data || err);
       setPaymentStatus("failed");
-      showToast("Verification failed", "error");
-      console.error("Verify error:", err.response?.data || err);
+      showToast(extractErrorMessage(err, "Verification failed"), "error");
     }
   };
 
@@ -153,11 +174,16 @@ const DepositScreen = ({ navigation }) => {
     const config = {
       pending: { text: "Payment processing… Please wait", color: "#FF9800" },
       success: { text: "Payment successful 🎉", color: "#28a745" },
-      failed: { text: "Payment failed or reversed", color: "#ff5252" },
+      failed: { text: "Payment failed", color: "#ff5252" },
     };
 
     return (
-      <View style={[styles.statusBanner, { backgroundColor: config[paymentStatus].color }]}>
+      <View
+        style={[
+          styles.statusBanner,
+          { backgroundColor: config[paymentStatus].color },
+        ]}
+      >
         <Text style={styles.statusText}>{config[paymentStatus].text}</Text>
       </View>
     );
@@ -210,13 +236,17 @@ const DepositScreen = ({ navigation }) => {
       <TouchableOpacity
         style={[
           styles.payButton,
-          (!isValidAmount() || paymentStatus === "pending") && { opacity: 0.6 },
+          (!isValidAmount() || paymentStatus === "pending") && {
+            opacity: 0.6,
+          },
         ]}
         disabled={!isValidAmount() || paymentStatus === "pending"}
         onPress={handleInitiatePayment}
       >
         <Text style={styles.payText}>
-          {paymentStatus === "pending" ? "Processing…" : `Pay ₦${totalAmount}`}
+          {paymentStatus === "pending"
+            ? "Processing…"
+            : `Pay ₦${totalAmount}`}
         </Text>
       </TouchableOpacity>
 
@@ -239,15 +269,25 @@ const DepositScreen = ({ navigation }) => {
                 <PayWithFlutterwave
                   options={{
                     tx_ref: backendTxRef,
-                    authorization: process.env.EXPO_PUBLIC_FLUTTERWAVE_KEY,
-                    customer: { email: user?.email, phonenumber: user?.phoneNumber, name: user?.username },
+                    authorization:
+                      process.env.EXPO_PUBLIC_FLUTTERWAVE_KEY,
+                    customer: {
+                      email: user?.email,
+                      phonenumber: user?.phoneNumber,
+                      name: user?.username,
+                    },
                     amount: totalAmount,
                     currency: "NGN",
                   }}
                   onRedirect={handleOnRedirect}
                   customButton={(props) => (
-                    <TouchableOpacity style={styles.modalButton} onPress={props.onPress}>
-                      <Text style={{ color: "#fff" }}>Confirm & Pay</Text>
+                    <TouchableOpacity
+                      style={styles.modalButton}
+                      onPress={props.onPress}
+                    >
+                      <Text style={{ color: "#fff" }}>
+                        Confirm & Pay
+                      </Text>
                     </TouchableOpacity>
                   )}
                 />
@@ -267,17 +307,64 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 20 },
   header: { marginBottom: 15 },
   label: { marginBottom: 8 },
-  input: { backgroundColor: "#E5E5E5", borderRadius: 10, padding: 14 },
-  breakdown: { marginVertical: 15, padding: 12, backgroundColor: "#F5F5F5", borderRadius: 10 },
-  payButton: { backgroundColor: "#FF7A00", padding: 15, borderRadius: 12, alignItems: "center" },
+  input: {
+    backgroundColor: "#E5E5E5",
+    borderRadius: 10,
+    padding: 14,
+  },
+  breakdown: {
+    marginVertical: 15,
+    padding: 12,
+    backgroundColor: "#F5F5F5",
+    borderRadius: 10,
+  },
+  payButton: {
+    backgroundColor: "#FF7A00",
+    padding: 15,
+    borderRadius: 12,
+    alignItems: "center",
+  },
   payText: { color: "#fff", fontWeight: "700" },
-  toast: { position: "absolute", left: 20, right: 20, top: 0, padding: 12, borderRadius: 10, zIndex: 1000 },
+  toast: {
+    position: "absolute",
+    left: 20,
+    right: 20,
+    top: 0,
+    padding: 12,
+    borderRadius: 10,
+    zIndex: 1000,
+  },
   toastText: { color: "#fff", textAlign: "center" },
-  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" },
-  modalContent: { backgroundColor: "#fff", padding: 20, borderRadius: 12, width: "85%" },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 12,
+    width: "85%",
+  },
   modalTitle: { fontSize: 18, fontWeight: "700", marginBottom: 10 },
-  modalButtons: { flexDirection: "row", justifyContent: "space-between" },
-  modalButton: { backgroundColor: "#FF7A00", padding: 12, borderRadius: 10 },
-  statusBanner: { padding: 12, borderRadius: 10, marginBottom: 10 },
-  statusText: { color: "#fff", textAlign: "center", fontWeight: "600" },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  modalButton: {
+    backgroundColor: "#FF7A00",
+    padding: 12,
+    borderRadius: 10,
+  },
+  statusBanner: {
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  statusText: {
+    color: "#fff",
+    textAlign: "center",
+    fontWeight: "600",
+  },
 });
