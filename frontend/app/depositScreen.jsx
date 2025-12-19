@@ -20,12 +20,13 @@ const POLL_INTERVAL = 4000;
 const POLL_TIMEOUT = 30000;
 
 const DepositScreen = ({ navigation }) => {
-  const { user, refreshUser, loadDepositHistory } = useContext(AuthContext);
+  const { user, refreshUser, loadDepositHistory } =
+    useContext(AuthContext);
 
   const [amount, setAmount] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState("idle");
-  const [backendTxRef, setBackendTxRef] = useState(null);
+  const [txRef, setTxRef] = useState(null);
 
   const pollTimer = useRef(null);
   const pollStartTime = useRef(null);
@@ -34,16 +35,6 @@ const DepositScreen = ({ navigation }) => {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState("info");
-
-  /* ---------------- ERROR HELPER ---------------- */
-  const extractErrorMessage = (err, fallback = "Something went wrong") => {
-    return (
-      err?.response?.data?.message ||
-      err?.response?.data?.error ||
-      err?.message ||
-      fallback
-    );
-  };
 
   /* ---------------- TOAST ---------------- */
   const showToast = (msg, type = "info") => {
@@ -68,12 +59,13 @@ const DepositScreen = ({ navigation }) => {
 
   /* ---------------- AMOUNT ---------------- */
   const enteredAmount =
-    isNaN(Number(amount)) || Number(amount) <= 0 ? 0 : Number(amount);
+    isNaN(Number(amount)) || Number(amount) <= 0
+      ? 0
+      : Number(amount);
 
   const totalAmount = enteredAmount + SERVICE_CHARGE;
 
-  const isValidAmount = () =>
-    !isNaN(Number(amount)) && Number(amount) > 0;
+  const isValidAmount = () => Number(amount) >= 100;
 
   /* ---------------- POLLING ---------------- */
   const stopPolling = () => {
@@ -83,7 +75,7 @@ const DepositScreen = ({ navigation }) => {
     }
   };
 
-  const startPolling = (tx_ref) => {
+  const startPolling = (reference) => {
     pollStartTime.current = Date.now();
 
     pollTimer.current = setInterval(async () => {
@@ -96,7 +88,9 @@ const DepositScreen = ({ navigation }) => {
 
       try {
         const deposits = await loadDepositHistory();
-        const deposit = deposits.find((d) => d.reference === tx_ref);
+        const deposit = deposits.find(
+          (d) => d.reference === reference
+        );
 
         if (!deposit) return;
 
@@ -108,10 +102,10 @@ const DepositScreen = ({ navigation }) => {
           await refreshUser();
         }
 
-        if (deposit.status === "failed" || deposit.status === "reversed") {
+        if (deposit.status === "failed") {
           stopPolling();
           setPaymentStatus("failed");
-          showToast("Payment failed or reversed", "error");
+          showToast("Payment failed", "error");
         }
       } catch (err) {
         console.log("Polling error:", err);
@@ -119,28 +113,19 @@ const DepositScreen = ({ navigation }) => {
     }, POLL_INTERVAL);
   };
 
-  /* ---------------- INITIATE PAYMENT ---------------- */
-  const handleInitiatePayment = async () => {
-    if (!isValidAmount()) return;
-
-    try {
-      const res = await api.post("/wallet/initiate-flutterwave", {
-        amount: totalAmount,
-      });
-
-      if (res.data.success) {
-        setBackendTxRef(res.data.tx_ref);
-        setShowConfirm(true);
-      } else {
-        showToast(res.data.message || "Failed to initiate payment", "error");
-      }
-    } catch (err) {
-      console.log("Initiate error:", err.response?.data || err);
-      showToast(extractErrorMessage(err, "Failed to initiate payment"), "error");
+  /* ---------------- START PAYMENT ---------------- */
+  const handleStartPayment = () => {
+    if (!isValidAmount()) {
+      showToast("Minimum deposit is ₦100", "error");
+      return;
     }
+
+    const reference = `flw_${user._id}_${Date.now()}`;
+    setTxRef(reference);
+    setShowConfirm(true);
   };
 
-  /* ---------------- HANDLE REDIRECT ---------------- */
+  /* ---------------- FLUTTERWAVE CALLBACK ---------------- */
   const handleOnRedirect = async (data) => {
     setShowConfirm(false);
 
@@ -152,7 +137,7 @@ const DepositScreen = ({ navigation }) => {
 
     try {
       setPaymentStatus("pending");
-      showToast("Payment processing...", "info");
+      showToast("Verifying payment...", "info");
 
       await api.post("/wallet/verify-flutterwave", {
         tx_ref: data.tx_ref,
@@ -163,7 +148,7 @@ const DepositScreen = ({ navigation }) => {
     } catch (err) {
       console.log("Verify error:", err.response?.data || err);
       setPaymentStatus("failed");
-      showToast(extractErrorMessage(err, "Verification failed"), "error");
+      showToast("Verification failed", "error");
     }
   };
 
@@ -172,7 +157,7 @@ const DepositScreen = ({ navigation }) => {
     if (paymentStatus === "idle") return null;
 
     const config = {
-      pending: { text: "Payment processing… Please wait", color: "#FF9800" },
+      pending: { text: "Payment processing…", color: "#FF9800" },
       success: { text: "Payment successful 🎉", color: "#28a745" },
       failed: { text: "Payment failed", color: "#ff5252" },
     };
@@ -184,7 +169,9 @@ const DepositScreen = ({ navigation }) => {
           { backgroundColor: config[paymentStatus].color },
         ]}
       >
-        <Text style={styles.statusText}>{config[paymentStatus].text}</Text>
+        <Text style={styles.statusText}>
+          {config[paymentStatus].text}
+        </Text>
       </View>
     );
   };
@@ -220,7 +207,7 @@ const DepositScreen = ({ navigation }) => {
 
       <Text style={styles.label}>Enter Amount to Deposit</Text>
       <TextInput
-        placeholder="₦ Amount"
+        placeholder="₦ Amount (min ₦100)"
         keyboardType="numeric"
         style={styles.input}
         value={amount}
@@ -230,7 +217,9 @@ const DepositScreen = ({ navigation }) => {
       <View style={styles.breakdown}>
         <Text>Amount: ₦{enteredAmount}</Text>
         <Text>Service Charge: ₦{SERVICE_CHARGE}</Text>
-        <Text style={{ fontWeight: "700" }}>Total: ₦{totalAmount}</Text>
+        <Text style={{ fontWeight: "700" }}>
+          Total: ₦{totalAmount}
+        </Text>
       </View>
 
       <TouchableOpacity
@@ -241,7 +230,7 @@ const DepositScreen = ({ navigation }) => {
           },
         ]}
         disabled={!isValidAmount() || paymentStatus === "pending"}
-        onPress={handleInitiatePayment}
+        onPress={handleStartPayment}
       >
         <Text style={styles.payText}>
           {paymentStatus === "pending"
@@ -265,10 +254,10 @@ const DepositScreen = ({ navigation }) => {
                 <Text>Cancel</Text>
               </TouchableOpacity>
 
-              {backendTxRef && (
+              {txRef && (
                 <PayWithFlutterwave
                   options={{
-                    tx_ref: backendTxRef,
+                    tx_ref: txRef,
                     authorization:
                       process.env.EXPO_PUBLIC_FLUTTERWAVE_KEY,
                     customer: {
