@@ -1,4 +1,3 @@
-//frontend/app/%28tabs%29/homeScreen.jsx
 import React, { useContext, useCallback, useState, useRef, useEffect } from "react";
 import {
   View,
@@ -29,7 +28,15 @@ const { width } = Dimensions.get("window");
 
 const HomeScreen = () => {
   const navigation = useNavigation();
-  const { user, refreshUser, authLoading, updateUser } = useContext(AuthContext);
+  const { 
+    user, 
+    refreshUser, 
+    authLoading, 
+    updateUser,
+    notificationCount,  // Get notification count from context
+    markNotificationsAsSeen,
+    resetNotificationCount
+  } = useContext(AuthContext);
 
   const [ticketModalVisible, setTicketModalVisible] = useState(false);
   const [previewVisible, setPreviewVisible] = useState(false);
@@ -37,12 +44,35 @@ const HomeScreen = () => {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const spinValue = useRef(new Animated.Value(0)).current;
+  const notificationPulseAnim = useRef(new Animated.Value(1)).current;
 
   useFocusEffect(
     useCallback(() => {
       refreshUser();
     }, [])
   );
+
+  // Notification pulse animation
+  useEffect(() => {
+    if (notificationCount > 0) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(notificationPulseAnim, {
+            toValue: 1.1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(notificationPulseAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      notificationPulseAnim.setValue(1);
+    }
+  }, [notificationCount]);
 
   useEffect(() => {
     if (uploadingPhoto) {
@@ -81,7 +111,12 @@ const HomeScreen = () => {
   const goToWithdraw = () => navigation.navigate("withdrawScreen");
   const goToBundle = () => navigation.navigate("screens/BuyDataScreen");
   const goToRedeem = () => navigation.navigate("redeemScreen");
-  const goToNotification = () => navigation.navigate("notificationScreen");
+  
+  // Updated notification navigation with mark as seen
+  const goToNotification = () => {
+    markNotificationsAsSeen(); // Mark as seen when navigating
+    navigation.navigate("notificationScreen");
+  };
 
   const handleDailyGame = () => {
     if (tickets <= 0) return setTicketModalVisible(true);
@@ -93,44 +128,43 @@ const HomeScreen = () => {
     navigation.navigate("screens/GameWinnersScreen");
   };
 
-const pickFromGallery = async () => {
-  const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (!granted) {
-    Alert.alert("Permission required", "Camera roll permission is required!");
-    return;
-  }
+  const pickFromGallery = async () => {
+    const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!granted) {
+      Alert.alert("Permission required", "Camera roll permission is required!");
+      return;
+    }
 
-  const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: [ImagePicker.MediaType.Image], // UPDATED
-    allowsEditing: true,
-    aspect: [1, 1],
-    quality: 0.7,
-  });
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: [ImagePicker.MediaType.Image],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
 
-  if (!result.canceled && result.assets?.length > 0) {
-    openPreview(result.assets[0].uri);
-  }
-};
+    if (!result.canceled && result.assets?.length > 0) {
+      openPreview(result.assets[0].uri);
+    }
+  };
 
-const pickFromCamera = async () => {
-  const { granted } = await ImagePicker.requestCameraPermissionsAsync();
-  if (!granted) {
-    Alert.alert("Permission required", "Camera permission is required!");
-    return;
-  }
+  const pickFromCamera = async () => {
+    const { granted } = await ImagePicker.requestCameraPermissionsAsync();
+    if (!granted) {
+      Alert.alert("Permission required", "Camera permission is required!");
+      return;
+    }
 
-  const result = await ImagePicker.launchCameraAsync({
-    mediaTypes: [ImagePicker.MediaType.Image], // UPDATED
-    allowsEditing: true,
-    aspect: [1, 1],
-    quality: 0.7,
-  });
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: [ImagePicker.MediaType.Image],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
 
-  if (!result.canceled && result.assets?.length > 0) {
-    openPreview(result.assets[0].uri);
-  }
-};
-
+    if (!result.canceled && result.assets?.length > 0) {
+      openPreview(result.assets[0].uri);
+    }
+  };
 
   const openPreview = (uri) => {
     setSelectedImageUri(uri);
@@ -212,14 +246,26 @@ const pickFromCamera = async () => {
               <Text style={styles.subText}>Welcome back</Text>
             </View>
           </View>
+          
+          {/* NOTIFICATION BELL WITH BADGE */}
           <TouchableOpacity style={styles.bellBtn} onPress={goToNotification}>
-            <MotiView
-              from={{ scale: 1 }}
-              animate={{ scale: [1, 1.3, 1] }}
-              transition={{ loop: true, type: "timing", duration: 1000 }}
+            <Animated.View
+              style={[
+                styles.bellContainer,
+                { transform: [{ scale: notificationPulseAnim }] }
+              ]}
             >
               <Ionicons name="notifications" size={26} color="#FF7A00" />
-            </MotiView>
+              
+              {/* NOTIFICATION BADGE */}
+              {notificationCount > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {notificationCount > 9 ? "9+" : notificationCount}
+                  </Text>
+                </View>
+              )}
+            </Animated.View>
           </TouchableOpacity>
         </View>
 
@@ -250,7 +296,7 @@ const pickFromCamera = async () => {
               <Text style={styles.label}>Reward Balance</Text>
               <Text style={styles.balance}>₦{rewardBalance.toLocaleString()}</Text>
             </View>
-            <TouchableOpacity style={styles.redeemBtn} >
+            <TouchableOpacity style={styles.redeemBtn} onPress={goToRedeem}>
               <Text style={styles.actionText}>Redeem</Text>
             </TouchableOpacity>
           </View>
@@ -390,8 +436,6 @@ const pickFromCamera = async () => {
 
 export default HomeScreen;
 
-
-
 /* ====================== STYLES ====================== */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#000" },
@@ -400,6 +444,31 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+
+  // NEW: Notification Badge Styles
+  bellContainer: {
+    position: "relative",
+  },
+  notificationBadge: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    backgroundColor: "#FF3B30", // Red badge
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#000",
+    zIndex: 10,
+  },
+  notificationBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "900",
+    paddingHorizontal: 4,
   },
 
   ticketGlow: {
@@ -550,7 +619,7 @@ const styles = StyleSheet.create({
   actionText: { color: "#fff", fontWeight: "600" },
 
   redeemBtn: {
-    backgroundColor: "#444",
+    backgroundColor: "#FF7A00",
     paddingVertical: 8,
     paddingHorizontal: 20,
     borderRadius: 8,

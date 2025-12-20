@@ -11,6 +11,10 @@ export const AuthProvider = ({ children }) => {
   const [refreshToken, setRefreshToken] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [depositHistory, setDepositHistory] = useState([]);
+  
+  // NEW: Notification state
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [lastSeenNotificationTime, setLastSeenNotificationTime] = useState(null);
 
   /* ---------------- Test backend connection once ---------------- */
   useEffect(() => {
@@ -23,6 +27,16 @@ export const AuthProvider = ({ children }) => {
       try {
         const storedToken = await AsyncStorage.getItem("userToken");
         const storedRefresh = await AsyncStorage.getItem("refreshToken");
+        const storedLastSeen = await AsyncStorage.getItem("lastSeenNotificationTime");
+
+        if (storedLastSeen) {
+          setLastSeenNotificationTime(new Date(storedLastSeen));
+        } else {
+          // Default to 24 hours ago
+          const defaultTime = new Date();
+          defaultTime.setDate(defaultTime.getDate() - 1);
+          setLastSeenNotificationTime(defaultTime);
+        }
 
         if (!storedToken || !storedRefresh) {
           setAuthLoading(false);
@@ -37,6 +51,8 @@ export const AuthProvider = ({ children }) => {
         if (res.data?.success) {
           setUser(res.data.user);
           await loadDepositHistory();
+          // Calculate notification count after loading deposit history
+          await calculateNotificationCount();
         }
       } catch (err) {
         console.log("Auth load error:", err.response?.data || err);
@@ -49,6 +65,52 @@ export const AuthProvider = ({ children }) => {
     loadUser();
   }, []);
 
+  /* ---------------- Calculate Notification Count ---------------- */
+  const calculateNotificationCount = async () => {
+    try {
+      // Count new deposits since last seen
+      const newDepositsCount = depositHistory.filter(deposit => {
+        if (!lastSeenNotificationTime) return true;
+        const depositDate = new Date(deposit.createdAt);
+        return depositDate > lastSeenNotificationTime;
+      }).length;
+
+      // Count other notifications (you can expand this logic)
+      const otherNotifications = 0; // Placeholder for other notification types
+
+      const totalCount = newDepositsCount + otherNotifications;
+      setNotificationCount(totalCount > 9 ? 9 : totalCount); // Cap at 9
+    } catch (error) {
+      console.log("Error calculating notification count:", error);
+      setNotificationCount(0);
+    }
+  };
+
+  /* ---------------- Mark Notifications as Seen ---------------- */
+  const markNotificationsAsSeen = async () => {
+    try {
+      const now = new Date();
+      setLastSeenNotificationTime(now);
+      setNotificationCount(0);
+      await AsyncStorage.setItem("lastSeenNotificationTime", now.toISOString());
+    } catch (error) {
+      console.log("Error marking notifications as seen:", error);
+    }
+  };
+
+  /* ---------------- Reset Notification Count ---------------- */
+  const resetNotificationCount = () => {
+    setNotificationCount(0);
+  };
+
+  /* ---------------- Increment Notification Count ---------------- */
+  const incrementNotificationCount = () => {
+    setNotificationCount(prev => {
+      const newCount = prev + 1;
+      return newCount > 9 ? 9 : newCount;
+    });
+  };
+
   /* ---------------- Refresh user ---------------- */
   const refreshUser = async () => {
     try {
@@ -57,6 +119,8 @@ export const AuthProvider = ({ children }) => {
       if (res.data?.success) {
         setUser(res.data.user);
         await loadDepositHistory();
+        // Recalculate notification count after refresh
+        await calculateNotificationCount();
       }
     } catch (err) {
       console.log("Refresh user error:", err.response?.data || err);
@@ -123,6 +187,7 @@ export const AuthProvider = ({ children }) => {
       await storeTokens(newToken, newRefresh);
       setUser(loggedInUser);
       await loadDepositHistory();
+      await calculateNotificationCount();
 
       return { success: true };
     } catch (err) {
@@ -132,12 +197,14 @@ export const AuthProvider = ({ children }) => {
 
   /* ---------------- Logout ---------------- */
   const logout = async () => {
-    await AsyncStorage.multiRemove(["userToken", "refreshToken"]);
+    await AsyncStorage.multiRemove(["userToken", "refreshToken", "lastSeenNotificationTime"]);
     delete api.defaults.headers.common.Authorization;
     setToken(null);
     setRefreshToken(null);
     setUser(null);
     setDepositHistory([]);
+    setNotificationCount(0);
+    setLastSeenNotificationTime(null);
   };
 
   /* ---------------- Refresh access token ---------------- */
@@ -185,6 +252,7 @@ export const AuthProvider = ({ children }) => {
         token,
         authLoading,
         depositHistory,
+        notificationCount, // NEW
         login,
         register,
         logout,
@@ -192,6 +260,9 @@ export const AuthProvider = ({ children }) => {
         updateUser,
         setUser,
         loadDepositHistory,
+        markNotificationsAsSeen, // NEW
+        resetNotificationCount, // NEW
+        incrementNotificationCount, // NEW
       }}
     >
       {children}
