@@ -92,7 +92,11 @@ api.interceptors.response.use(
 
         const res = await axios.post(
           `${BASE_URL}/api/v1/auth/refresh`,
-          { refreshToken }
+          { refreshToken },
+          {
+            headers: { "Content-Type": "application/json" },
+            timeout: 10000,
+          }
         );
 
         const newAccessToken = res.data.accessToken;
@@ -112,6 +116,7 @@ api.interceptors.response.use(
         await AsyncStorage.multiRemove(["userToken", "refreshToken"]);
         delete api.defaults.headers.common.Authorization;
 
+        console.error("❌ Token refresh failed:", refreshError);
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
@@ -144,7 +149,7 @@ export const registerUser = (payload) => api.post("/auth/register", payload);
 export const fetchUser = () => api.get("/auth/me");
 
 // -----------------------------------------------------------
-// WALLET
+// WALLET & PAYMENTS (UPDATED)
 // -----------------------------------------------------------
 export const refreshUserBalance = () => api.get("/wallet/balance");
 export const getDepositHistory = () => api.get("/wallet/deposit-history");
@@ -155,11 +160,22 @@ export const verifyFlutterwavePayment = (tx_ref) =>
 export const getDepositStatus = (tx_ref) =>
   api.get(`/wallet/deposit-status/${tx_ref}`);
 
+export const reconcilePayment = (tx_ref) =>
+  api.post("/wallet/reconcile-payment", { tx_ref });
+
 export const redeemRewards = () => api.post("/wallet/redeem");
 
-export const getWithdrawalHistoryApi = async () => {
-  const res = await api.get("/wallet/withdraw-history");
-  return res.data;
+export const withdrawFunds = (payload) =>
+  api.post("/wallet/withdraw", payload);
+
+export const getWithdrawalHistory = async () => {
+  try {
+    const res = await api.get("/wallet/withdraw-history");
+    return res.data;
+  } catch (err) {
+    console.error("Withdrawal history error:", err);
+    return { success: false, withdrawals: [] };
+  }
 };
 
 // -----------------------------------------------------------
@@ -185,17 +201,14 @@ export const getDataPurchaseHistory = () => api.get("/data/history");
 export const playDailyGame = (numbers) =>
   api.post("/game/daily/play", { numbers });
 
-export const getDailyResult = () =>
-  api.get("/game/daily/result");
+export const getDailyResult = () => api.get("/game/daily/result");
 
 export const playWeeklyGame = (numbers) =>
   api.post("/game/weekly/play", { numbers });
 
-export const getWeeklyResult = () =>
-  api.get("/game/weekly/result");
+export const getWeeklyResult = () => api.get("/game/weekly/result");
 
-export const getGameTickets = () =>
-  api.get("/game/tickets");
+export const getGameTickets = () => api.get("/game/tickets");
 
 // -----------------------------------------------------------
 // LEADERBOARD
@@ -228,6 +241,7 @@ export const updateAvatar = async (formData) => {
           Authorization: `Bearer ${token}`,
           // ❗ Do NOT set Content-Type manually (let Axios handle multipart)
         },
+        timeout: 30000, // 30 second timeout for image upload
       }
     );
 
@@ -238,6 +252,18 @@ export const updateAvatar = async (formData) => {
       success: false,
       msg: err.response?.data?.msg || "Failed to update avatar",
     };
+  }
+};
+
+// -----------------------------------------------------------
+// UTILITY FUNCTIONS
+// -----------------------------------------------------------
+export const checkConnection = async () => {
+  try {
+    await api.get("/auth/ping");
+    return true;
+  } catch {
+    return false;
   }
 };
 
