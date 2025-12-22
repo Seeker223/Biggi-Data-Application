@@ -1,3 +1,4 @@
+// frontend/app/%28tabs%29/homeScreen.jsx
 import React, { useContext, useCallback, useState, useRef, useEffect } from "react";
 import {
   View,

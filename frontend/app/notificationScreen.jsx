@@ -159,7 +159,7 @@ useFocusEffect(
             <TouchableOpacity onPress={() => navigation.goBack()}>
               <Ionicons name="arrow-back" size={24} color="#fff" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Deposit History</Text>
+            <Text style={styles.headerTitle}>Notifications</Text>
             <Ionicons name="notifications" size={24} color="#FF7A00" />
           </View>
           <View style={styles.loadingContainer}>
