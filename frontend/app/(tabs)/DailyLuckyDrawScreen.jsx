@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useContext } from "react";
 import {
   View,
   Text,
@@ -9,10 +9,13 @@ import {
   Dimensions,
   Alert,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { AuthContext } from "../../context/AuthContext";
+import api from "../../utils/api";
 
 const { width } = Dimensions.get("window");
 const BRAND_COLORS = {
@@ -31,116 +34,220 @@ const BRAND_COLORS = {
 
 const DailyLuckyDrawScreen = () => {
   const navigation = useNavigation();
-  const [activeTab, setActiveTab] = useState("daily"); // 'daily' or 'weekly'
-  const [timeLeftDaily, setTimeLeftDaily] = useState(6 * 60 * 60 + 45 * 60 + 3);
-  const [timeLeftWeekly, setTimeLeftWeekly] = useState(2 * 24 * 60 * 60 + 12 * 60 * 60); // 2 days 12 hours
-  const [ticketsPurchased, setTicketsPurchased] = useState(3);
-  const [weeklyPurchases, setWeeklyPurchases] = useState(2);
-  const [isLoading, setIsLoading] = useState(false);
-  const [winners, setWinners] = useState([
-    { id: 1, name: "John D.", amount: "₦2,000", time: "Today, 7:30 PM" },
-    { id: 2, name: "Sarah M.", amount: "₦1,500", time: "Yesterday" },
-    { id: 3, name: "Alex K.", amount: "₦2,500", time: "2 days ago" },
-  ]);
+  const { user, refreshUser } = useContext(AuthContext);
   
-  const progressDaily = useRef(new Animated.Value(0)).current;
-  const progressWeekly = useRef(new Animated.Value(0)).current;
+  const [activeTab, setActiveTab] = useState("daily"); // 'daily' or 'monthly'
+  const [refreshing, setRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [drawHistory, setDrawHistory] = useState([]);
+  const [winners, setWinners] = useState([]);
+  const [monthlyProgress, setMonthlyProgress] = useState({
+    purchases: 0,
+    required: 5,
+    daysLeft: 15
+  });
+  
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadData();
+      startPulseAnimation();
+    }, [])
+  );
 
   useEffect(() => {
-    // Fade in animation
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 800,
       useNativeDriver: true,
     }).start();
-
-    // Daily countdown
-    const dailyInterval = setInterval(() => {
-      setTimeLeftDaily((prev) => (prev > 0 ? prev - 1 : 86400)); // Reset to 24h when done
-    }, 1000);
-
-    // Weekly countdown
-    const weeklyInterval = setInterval(() => {
-      setTimeLeftWeekly((prev) => (prev > 0 ? prev - 1 : 604800)); // Reset to 1 week when done
-    }, 1000);
-
-    return () => {
-      clearInterval(dailyInterval);
-      clearInterval(weeklyInterval);
-    };
   }, []);
 
-  useEffect(() => {
-    // Animate daily progress bar
-    Animated.timing(progressDaily, {
-      toValue: 1,
-      duration: timeLeftDaily * 1000,
-      useNativeDriver: false,
-    }).start();
-  }, [timeLeftDaily]);
+  const startPulseAnimation = () => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.05,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  };
 
-  useEffect(() => {
-    // Animate weekly progress bar
-    Animated.timing(progressWeekly, {
-      toValue: 1,
-      duration: timeLeftWeekly * 1000,
-      useNativeDriver: false,
-    }).start();
-  }, [timeLeftWeekly]);
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      await refreshUser();
+      
+      // Load user's game history
+      if (user?.dailyNumberDraw) {
+        const sortedHistory = [...user.dailyNumberDraw]
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+          .slice(0, 10);
+        setDrawHistory(sortedHistory);
+      }
+
+      // Calculate monthly progress
+      const purchasesThisMonth = user?.dataBundleCount || 0;
+      const now = new Date();
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const daysLeft = daysInMonth - now.getDate();
+      
+      setMonthlyProgress({
+        purchases: purchasesThisMonth,
+        required: 5,
+        daysLeft: Math.max(0, daysLeft)
+      });
+
+      // Load recent winners from backend
+      loadRecentWinners();
+      
+    } catch (error) {
+      console.error("Error loading draw data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadRecentWinners = async () => {
+    try {
+      // This would come from your backend API
+      // For now, we'll create sample data based on user's own wins
+      const userWins = (user?.dailyNumberDraw || [])
+        .filter(game => game.isWinner)
+        .map(game => ({
+          id: game._id,
+          name: user?.username || "User",
+          amount: "₦2,000",
+          time: new Date(game.createdAt).toLocaleDateString(),
+          type: "daily"
+        }));
+
+      // Add some sample winners
+      const sampleWinners = [
+        { id: "1", name: "Alex Johnson", amount: "₦2,000", time: "Today", type: "daily" },
+        { id: "2", name: "Sarah Williams", amount: "₦2,000", time: "Yesterday", type: "daily" },
+        { id: "3", name: "Michael Brown", amount: "₦5,000", time: "3 days ago", type: "monthly" },
+        { id: "4", name: "Emma Davis", amount: "₦2,000", time: "5 days ago", type: "daily" },
+        { id: "5", name: "James Wilson", amount: "₦5,000", time: "Last month", type: "monthly" },
+      ];
+
+      setWinners([...userWins, ...sampleWinners].slice(0, 5));
+    } catch (error) {
+      console.error("Error loading winners:", error);
+    }
+  };
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, []);
+
+  const handleBuyTicket = () => {
+    Alert.alert(
+      "Get Tickets",
+      "Buy any Biggi Data bundle to get free draw tickets!",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "View Data Plans", 
+          onPress: () => navigation.navigate("screens/BuyDataScreen") 
+        }
+      ]
+    );
+  };
+
+  const handlePlayDailyGame = () => {
+    const tickets = user?.tickets || 0;
+    if (tickets <= 0) {
+      Alert.alert(
+        "No Tickets",
+        "You need tickets to play. Buy a data bundle to get tickets.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Get Tickets", onPress: handleBuyTicket }
+        ]
+      );
+      return;
+    }
+    navigation.navigate("screens/DailyNumberDrawScreen");
+  };
+
+  const handleCheckEligibility = () => {
+    const dailyPlays = drawHistory.length;
+    const monthlyPurchases = monthlyProgress.purchases;
+    const tickets = user?.tickets || 0;
+    
+    Alert.alert(
+      "Your Eligibility Status",
+      `🎫 Available Tickets: ${tickets}\n` +
+      `📅 Daily Plays This Month: ${dailyPlays}\n` +
+      `🛒 Monthly Purchases: ${monthlyPurchases}/${monthlyProgress.required}\n` +
+      `📊 Monthly Progress: ${Math.round((monthlyPurchases / monthlyProgress.required) * 100)}%\n` +
+      `⏳ Days Left This Month: ${monthlyProgress.daysLeft}`,
+      [{ text: "OK" }]
+    );
+  };
+
+  const handleViewHistory = () => {
+    navigation.navigate("screens/DailyHistoryScreen");
+  };
 
   const formatTime = (seconds) => {
-    if (seconds >= 86400) {
-      const days = Math.floor(seconds / 86400);
-      const hours = Math.floor((seconds % 86400) / 3600);
-      return `${days}d ${hours}h`;
-    }
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
     return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
-  const progressWidthDaily = progressDaily.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0%", "100%"],
-  });
-
-  const progressWidthWeekly = progressWeekly.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0%", "100%"],
-  });
-
-  const dailyNumbers = [30, 2, 41, 39, 11];
-  const weeklyNumbers = [8, 15, 27, 36, 42];
-
-  const handleBuyTicket = () => {
-    Alert.alert(
-      "Buy Ticket",
-      "Buy any Biggi Data bundle to get a free daily draw ticket!",
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "View Data Plans", 
-          onPress: () => navigation.navigate("DataPurchaseScreen") 
-        }
-      ]
-    );
+  const getNextDrawTime = () => {
+    const now = new Date();
+    const nextDraw = new Date();
+    nextDraw.setHours(19, 30, 0, 0); // 7:30 PM
+    
+    if (now > nextDraw) {
+      nextDraw.setDate(nextDraw.getDate() + 1);
+    }
+    
+    const diffMs = nextDraw - now;
+    return Math.floor(diffMs / 1000);
   };
 
-  const handleCheckEligibility = () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      Alert.alert(
-        "Eligibility Check",
-        `Daily Draw: ${ticketsPurchased}/1 ticket(s) purchased\nWeekly Draw: ${weeklyPurchases}/5 purchases this week`,
-        [
-          { text: "OK" }
-        ]
-      );
+  const getNextMonthlyDrawTime = () => {
+    const now = new Date();
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    lastDay.setHours(23, 59, 59, 0);
+    
+    const diffMs = lastDay - now;
+    return Math.floor(diffMs / 1000);
+  };
+
+  const [timeLeftDaily, setTimeLeftDaily] = useState(getNextDrawTime());
+  const [timeLeftMonthly, setTimeLeftMonthly] = useState(getNextMonthlyDrawTime());
+
+  useEffect(() => {
+    const dailyInterval = setInterval(() => {
+      setTimeLeftDaily(prev => (prev > 0 ? prev - 1 : getNextDrawTime()));
     }, 1000);
-  };
+
+    const monthlyInterval = setInterval(() => {
+      setTimeLeftMonthly(prev => (prev > 0 ? prev - 1 : getNextMonthlyDrawTime()));
+    }, 1000);
+
+    return () => {
+      clearInterval(dailyInterval);
+      clearInterval(monthlyInterval);
+    };
+  }, []);
 
   const renderDailyTab = () => (
     <Animated.View style={{ opacity: fadeAnim }}>
@@ -176,21 +283,15 @@ const DailyLuckyDrawScreen = () => {
         
         <Text style={styles.countdownTime}>{formatTime(timeLeftDaily)}</Text>
         
-        <View style={styles.progressContainer}>
-          <Animated.View
-            style={[styles.progressBar, { width: progressWidthDaily }]}
-          />
-        </View>
-        
         <Text style={styles.countdownSubtext}>
-          Daily draw at 7:30 PM
+          Daily draw at 7:30 PM • Today's Numbers: {drawHistory[0]?.numbers?.join(", ") || "Not drawn yet"}
         </Text>
       </View>
 
-      {/* Your Tickets */}
-      <View style={styles.ticketsCard}>
-        <View style={styles.ticketsHeader}>
-          <Text style={styles.ticketsTitle}>Your Tickets</Text>
+      {/* Your Stats */}
+      <View style={styles.statsCard}>
+        <View style={styles.statsHeader}>
+          <Text style={styles.statsTitle}>Your Daily Stats</Text>
           <TouchableOpacity 
             style={styles.eligibilityButton}
             onPress={handleCheckEligibility}
@@ -201,66 +302,98 @@ const DailyLuckyDrawScreen = () => {
             ) : (
               <>
                 <Ionicons name="checkmark-circle" size={16} color={BRAND_COLORS.primary} />
-                <Text style={styles.eligibilityText}>Check Eligibility</Text>
+                <Text style={styles.eligibilityText}>Check Status</Text>
               </>
             )}
           </TouchableOpacity>
         </View>
         
-        <View style={styles.ticketCountContainer}>
-          <View style={styles.ticketCount}>
-            <Text style={styles.ticketCountNumber}>{ticketsPurchased}</Text>
-            <Text style={styles.ticketCountLabel}>Tickets Today</Text>
+        <View style={styles.statsGrid}>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{user?.tickets || 0}</Text>
+            <Text style={styles.statLabel}>Tickets</Text>
           </View>
-          <View style={styles.ticketDivider} />
-          <View style={styles.ticketCount}>
-            <Text style={styles.ticketCountNumber}>1</Text>
-            <Text style={styles.ticketCountLabel}>Required to Enter</Text>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{drawHistory.length}</Text>
+            <Text style={styles.statLabel}>Total Plays</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>
+              {drawHistory.filter(g => g.isWinner).length}
+            </Text>
+            <Text style={styles.statLabel}>Wins</Text>
           </View>
         </View>
         
-        <TouchableOpacity 
-          style={styles.buyTicketButton}
-          onPress={handleBuyTicket}
-        >
-          <Ionicons name="cart" size={20} color="#FFF" />
-          <Text style={styles.buyTicketText}>Buy Data to Get Ticket</Text>
-        </TouchableOpacity>
+        <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+          <TouchableOpacity 
+            style={[styles.playButton, (user?.tickets || 0) <= 0 && styles.disabledButton]}
+            onPress={handlePlayDailyGame}
+          >
+            <Ionicons name="game-controller" size={20} color="#FFF" />
+            <Text style={styles.playButtonText}>Play Daily Draw</Text>
+          </TouchableOpacity>
+        </Animated.View>
       </View>
 
-      {/* Today's Numbers */}
-      <View style={styles.numbersCard}>
-        <Text style={styles.numbersTitle}>Today's Winning Numbers</Text>
-        <View style={styles.numbersGrid}>
-          {dailyNumbers.map((num, index) => (
-            <LinearGradient
-              key={index}
-              colors={["#FFB75E", "#FF7A00"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.numberBadge}
-            >
-              <Text style={styles.numberText}>{num}</Text>
-            </LinearGradient>
+      {/* Recent Plays */}
+      {drawHistory.length > 0 && (
+        <View style={styles.recentPlaysCard}>
+          <View style={styles.recentHeader}>
+            <Text style={styles.recentTitle}>Your Recent Plays</Text>
+            <TouchableOpacity onPress={handleViewHistory}>
+              <Text style={styles.viewAllText}>View All</Text>
+            </TouchableOpacity>
+          </View>
+          
+          {drawHistory.slice(0, 3).map((play, index) => (
+            <View key={play._id || index} style={styles.playItem}>
+              <View style={styles.playDate}>
+                <Text style={styles.playDay}>
+                  {new Date(play.createdAt).toLocaleDateString('en-US', { weekday: 'short' })}
+                </Text>
+                <Text style={styles.playNumber}>
+                  {new Date(play.createdAt).getDate()}
+                </Text>
+              </View>
+              <View style={styles.playDetails}>
+                <Text style={styles.playNumbers}>
+                  Numbers: {play.numbers?.join(", ")}
+                </Text>
+                <Text style={[
+                  styles.playResult,
+                  play.isWinner ? styles.winText : styles.lossText
+                ]}>
+                  {play.isWinner ? "🎉 You Won!" : "No win"}
+                </Text>
+              </View>
+              <View style={[
+                styles.playStatus,
+                play.isWinner ? styles.winBadge : styles.lossBadge
+              ]}>
+                <Text style={styles.playStatusText}>
+                  {play.isWinner ? "WIN" : "PLAY"}
+                </Text>
+              </View>
+            </View>
           ))}
         </View>
-        <Text style={styles.numbersSubtext}>
-          Drawn today at 7:30 PM
-        </Text>
-      </View>
+      )}
     </Animated.View>
   );
 
-  const renderWeeklyTab = () => (
+  const renderMonthlyTab = () => (
     <Animated.View style={{ opacity: fadeAnim }}>
-      {/* Weekly Prize Info */}
+      {/* Monthly Prize Info */}
       <LinearGradient
         colors={["#4A00E0", "#8E2DE2"]}
         style={styles.prizeCard}
       >
         <View style={styles.prizeHeader}>
           <Ionicons name="trophy-outline" size={24} color="#FFF" />
-          <Text style={styles.prizeTitle}>Weekly Jackpot</Text>
+          <Text style={styles.prizeTitle}>Monthly Jackpot</Text>
         </View>
         
         <Text style={styles.prizeAmount}>₦5,000</Text>
@@ -271,85 +404,98 @@ const DailyLuckyDrawScreen = () => {
             <Ionicons name="calendar" size={20} color="#FFF" />
           </View>
           <Text style={styles.ticketText}>
-            Make 5 data purchases this week to qualify
+            Make 5+ data purchases this month to qualify
           </Text>
         </View>
       </LinearGradient>
 
-      {/* Weekly Countdown */}
+      {/* Monthly Countdown */}
       <View style={styles.countdownCard}>
         <View style={styles.countdownHeader}>
           <Ionicons name="calendar" size={20} color="#8E2DE2" />
-          <Text style={[styles.countdownTitle, { color: '#8E2DE2' }]}>Weekly Draw Countdown</Text>
+          <Text style={[styles.countdownTitle, { color: '#8E2DE2' }]}>
+            Monthly Draw Countdown
+          </Text>
         </View>
         
-        <Text style={[styles.countdownTime, { color: '#8E2DE2' }]}>{formatTime(timeLeftWeekly)}</Text>
-        
-        <View style={styles.progressContainer}>
-          <Animated.View
-            style={[styles.progressBar, { 
-              width: progressWidthWeekly,
-              backgroundColor: '#8E2DE2'
-            }]}
-          />
-        </View>
+        <Text style={[styles.countdownTime, { color: '#8E2DE2' }]}>
+          {Math.floor(timeLeftMonthly / 86400)} days
+        </Text>
         
         <Text style={styles.countdownSubtext}>
-          Weekly draw every Sunday at 7:30 PM
+          Monthly draw at end of month • Auto-qualify with 5+ purchases
         </Text>
       </View>
 
-      {/* Weekly Progress */}
-      <View style={styles.weeklyProgressCard}>
-        <Text style={styles.weeklyProgressTitle}>Your Weekly Progress</Text>
+      {/* Monthly Progress */}
+      <View style={styles.monthlyProgressCard}>
+        <Text style={styles.monthlyProgressTitle}>Your Monthly Progress</Text>
         
         <View style={styles.progressRow}>
           <View style={styles.progressInfo}>
-            <Text style={styles.progressNumber}>{weeklyPurchases}</Text>
-            <Text style={styles.progressLabel}>Purchases This Week</Text>
+            <Text style={styles.progressNumber}>{monthlyProgress.purchases}</Text>
+            <Text style={styles.progressLabel}>Purchases</Text>
           </View>
           <View style={styles.progressDivider} />
           <View style={styles.progressInfo}>
-            <Text style={styles.progressNumber}>5</Text>
+            <Text style={styles.progressNumber}>{monthlyProgress.required}</Text>
             <Text style={styles.progressLabel}>Required</Text>
+          </View>
+          <View style={styles.progressDivider} />
+          <View style={styles.progressInfo}>
+            <Text style={styles.progressNumber}>{monthlyProgress.daysLeft}</Text>
+            <Text style={styles.progressLabel}>Days Left</Text>
           </View>
         </View>
         
-        <View style={styles.weeklyBarContainer}>
+        <View style={styles.progressBarContainer}>
           <View 
             style={[
-              styles.weeklyBar, 
-              { width: `${(weeklyPurchases / 5) * 100}%` }
+              styles.progressBar, 
+              { 
+                width: `${Math.min(100, (monthlyProgress.purchases / monthlyProgress.required) * 100)}%`,
+                backgroundColor: monthlyProgress.purchases >= monthlyProgress.required ? '#4CAF50' : '#8E2DE2'
+              }
             ]} 
           />
         </View>
         
-        <Text style={styles.weeklyProgressText}>
-          {weeklyPurchases >= 5 
-            ? "🎉 You're eligible for the weekly draw!" 
-            : `Make ${5 - weeklyPurchases} more purchase(s) to qualify`}
+        <Text style={styles.progressText}>
+          {monthlyProgress.purchases >= monthlyProgress.required 
+            ? "🎉 You're eligible for the monthly draw!" 
+            : `Make ${monthlyProgress.required - monthlyProgress.purchases} more purchase(s) to qualify`}
         </Text>
+        
+        <TouchableOpacity 
+          style={styles.buyButton}
+          onPress={handleBuyTicket}
+        >
+          <Ionicons name="cart" size={18} color="#FFF" />
+          <Text style={styles.buyButtonText}>Buy Data to Qualify</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Weekly Numbers */}
-      <View style={styles.numbersCard}>
-        <Text style={styles.numbersTitle}>Last Week's Winning Numbers</Text>
-        <View style={styles.numbersGrid}>
-          {weeklyNumbers.map((num, index) => (
-            <LinearGradient
-              key={index}
-              colors={["#8E2DE2", "#4A00E0"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.numberBadge}
-            >
-              <Text style={styles.numberText}>{num}</Text>
-            </LinearGradient>
-          ))}
+      {/* Monthly Benefits */}
+      <View style={styles.benefitsCard}>
+        <Text style={styles.benefitsTitle}>Monthly Draw Benefits</Text>
+        <View style={styles.benefitsList}>
+          <View style={styles.benefitItem}>
+            <Ionicons name="checkmark-circle" size={18} color="#4CAF50" />
+            <Text style={styles.benefitText}>Higher Prize Pool (₦5,000)</Text>
+          </View>
+          <View style={styles.benefitItem}>
+            <Ionicons name="checkmark-circle" size={18} color="#4CAF50" />
+            <Text style={styles.benefitText}>Auto-qualification with 5+ purchases</Text>
+          </View>
+          <View style={styles.benefitItem}>
+            <Ionicons name="checkmark-circle" size={18} color="#4CAF50" />
+            <Text style={styles.benefitText}>Better odds (fewer participants)</Text>
+          </View>
+          <View style={styles.benefitItem}>
+            <Ionicons name="checkmark-circle" size={18} color="#4CAF50" />
+            <Text style={styles.benefitText}>Separate from daily draws</Text>
+          </View>
         </View>
-        <Text style={styles.numbersSubtext}>
-          Drawn last Sunday at 7:30 PM
-        </Text>
       </View>
     </Animated.View>
   );
@@ -359,29 +505,75 @@ const DailyLuckyDrawScreen = () => {
       <View style={styles.winnersHeader}>
         <Ionicons name="podium" size={20} color={BRAND_COLORS.primary} />
         <Text style={styles.winnersTitle}>Recent Winners</Text>
-        <TouchableOpacity>
-          <Text style={styles.seeAllText}>See All</Text>
-        </TouchableOpacity>
+        <View style={styles.winnerTypeFilter}>
+          <TouchableOpacity 
+            style={[
+              styles.winnerTypeButton,
+              activeTab === "daily" && styles.activeWinnerType
+            ]}
+            onPress={() => setActiveTab("daily")}
+          >
+            <Text style={[
+              styles.winnerTypeText,
+              activeTab === "daily" && styles.activeWinnerTypeText
+            ]}>
+              Daily
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[
+              styles.winnerTypeButton,
+              activeTab === "monthly" && styles.activeWinnerType
+            ]}
+            onPress={() => setActiveTab("monthly")}
+          >
+            <Text style={[
+              styles.winnerTypeText,
+              activeTab === "monthly" && styles.activeWinnerTypeText
+            ]}>
+              Monthly
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
       
-      {winners.map((winner) => (
-        <View key={winner.id} style={styles.winnerRow}>
-          <View style={styles.winnerInfo}>
-            <View style={styles.winnerAvatar}>
-              <Text style={styles.winnerInitial}>
-                {winner.name.charAt(0)}
+      {winners
+        .filter(winner => winner.type === activeTab || activeTab === "daily")
+        .map((winner) => (
+          <View key={winner.id} style={styles.winnerRow}>
+            <View style={styles.winnerInfo}>
+              <View style={[
+                styles.winnerAvatar,
+                winner.type === "monthly" ? styles.monthlyAvatar : styles.dailyAvatar
+              ]}>
+                <Text style={styles.winnerInitial}>
+                  {winner.name.charAt(0)}
+                </Text>
+              </View>
+              <View>
+                <Text style={styles.winnerName}>{winner.name}</Text>
+                <Text style={styles.winnerTime}>{winner.time}</Text>
+              </View>
+            </View>
+            <View style={styles.winnerPrize}>
+              <Text style={styles.winnerAmount}>{winner.amount}</Text>
+              <Text style={styles.winnerTypeLabel}>
+                {winner.type === "monthly" ? "Monthly" : "Daily"}
               </Text>
             </View>
-            <View>
-              <Text style={styles.winnerName}>{winner.name}</Text>
-              <Text style={styles.winnerTime}>{winner.time}</Text>
-            </View>
           </View>
-          <Text style={styles.winnerAmount}>{winner.amount}</Text>
-        </View>
-      ))}
+        ))}
     </View>
   );
+
+  if (isLoading && !refreshing) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={BRAND_COLORS.primary} />
+        <Text style={styles.loadingText}>Loading draws...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -399,14 +591,23 @@ const DailyLuckyDrawScreen = () => {
         
         <View style={styles.headerContent}>
           <View style={styles.headerBadge}>
-            <Ionicons name="sparkles" size={16} color="#FFF" />
-            <Text style={styles.headerBadgeText}>Lucky Draw</Text>
+            <Ionicons name="ticket" size={16} color="#FFF" />
+            <Text style={styles.headerBadgeText}>Draws & Games</Text>
           </View>
-          <Text style={styles.headerTitle}>Daily & Weekly Draws</Text>
-          <Text style={styles.headerSubtitle}>Win cash prizes with every purchase</Text>
+          <Text style={styles.headerTitle}>Daily & Monthly Draws</Text>
+          <Text style={styles.headerSubtitle}>Win cash with every data purchase</Text>
         </View>
         
-        <TouchableOpacity style={styles.infoButton}>
+        <TouchableOpacity 
+          style={styles.infoButton}
+          onPress={() => Alert.alert(
+            "Draw Information",
+            "• Daily Draw: Win ₦2,000 every day at 7:30 PM\n" +
+            "• Monthly Draw: Win ₦5,000 at month-end\n" +
+            "• 1 Ticket per data purchase\n" +
+            "• Auto-qualify for monthly with 5+ purchases"
+          )}
+        >
           <Ionicons name="information-circle" size={24} color="#FFF" />
         </TouchableOpacity>
       </LinearGradient>
@@ -431,19 +632,19 @@ const DailyLuckyDrawScreen = () => {
         </TouchableOpacity>
         
         <TouchableOpacity
-          style={[styles.tabButton, activeTab === "weekly" && styles.activeTab]}
-          onPress={() => setActiveTab("weekly")}
+          style={[styles.tabButton, activeTab === "monthly" && styles.activeTab]}
+          onPress={() => setActiveTab("monthly")}
         >
           <Ionicons 
             name="calendar-outline" 
             size={20} 
-            color={activeTab === "weekly" ? "#FFF" : BRAND_COLORS.textSecondary} 
+            color={activeTab === "monthly" ? "#FFF" : BRAND_COLORS.textSecondary} 
           />
           <Text style={[
             styles.tabText,
-            activeTab === "weekly" && styles.activeTabText
+            activeTab === "monthly" && styles.activeTabText
           ]}>
-            Weekly Draw
+            Monthly Draw
           </Text>
         </TouchableOpacity>
       </View>
@@ -452,34 +653,43 @@ const DailyLuckyDrawScreen = () => {
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={BRAND_COLORS.primary}
+          />
+        }
       >
         {/* Active Tab Content */}
-        {activeTab === "daily" ? renderDailyTab() : renderWeeklyTab()}
+        {activeTab === "daily" ? renderDailyTab() : renderMonthlyTab()}
         
-        {/* Recent Winners (Shared) */}
+        {/* Recent Winners */}
         {renderWinnersList()}
         
         {/* Info Section */}
         <View style={styles.infoSection}>
           <Text style={styles.infoTitle}>How It Works</Text>
-          <View style={styles.infoRow}>
-            <View style={styles.infoStep}>
-              <View style={styles.stepNumber}>
-                <Text style={styles.stepNumberText}>1</Text>
+          <View style={styles.infoSteps}>
+            <View style={styles.step}>
+              <View style={styles.stepIcon}>
+                <Text style={styles.stepNumber}>1</Text>
               </View>
               <Text style={styles.stepText}>Buy any Biggi Data bundle</Text>
             </View>
-            <View style={styles.infoStep}>
-              <View style={styles.stepNumber}>
-                <Text style={styles.stepNumberText}>2</Text>
+            <View style={styles.stepLine} />
+            <View style={styles.step}>
+              <View style={styles.stepIcon}>
+                <Text style={styles.stepNumber}>2</Text>
               </View>
               <Text style={styles.stepText}>Get automatic draw entries</Text>
             </View>
-            <View style={styles.infoStep}>
-              <View style={styles.stepNumber}>
-                <Text style={styles.stepNumberText}>3</Text>
+            <View style={styles.stepLine} />
+            <View style={styles.step}>
+              <View style={styles.stepIcon}>
+                <Text style={styles.stepNumber}>3</Text>
               </View>
-              <Text style={styles.stepText}>Check results daily at 7:30 PM</Text>
+              <Text style={styles.stepText}>Check results daily/monthly</Text>
             </View>
           </View>
         </View>
@@ -488,10 +698,11 @@ const DailyLuckyDrawScreen = () => {
         <View style={styles.termsCard}>
           <Ionicons name="alert-circle" size={20} color={BRAND_COLORS.warning} />
           <Text style={styles.termsText}>
-            • One ticket per data purchase{"\n"}
+            • 1 ticket per data purchase{"\n"}
+            • Daily draw: 7:30 PM every day{"\n"}
+            • Monthly draw: End of each month{"\n"}
             • Winners notified in app & via email{"\n"}
-            • Pairs transferred to winners within 24 hours{"\n"}
-            • Winners list published daily
+            • Prizes transferred within 24 hours
           </Text>
         </View>
       </ScrollView>
@@ -505,6 +716,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F8F9FA",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F8F9FA",
+  },
+  loadingText: {
+    marginTop: 10,
+    color: BRAND_COLORS.textSecondary,
+    fontSize: 14,
   },
   header: {
     paddingTop: 50,
@@ -671,26 +893,14 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: BRAND_COLORS.primary,
     textAlign: "center",
-    marginBottom: 15,
-  },
-  progressContainer: {
-    height: 6,
-    backgroundColor: "#F0F0F0",
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  progressBar: {
-    height: 6,
-    backgroundColor: BRAND_COLORS.primary,
-    borderRadius: 3,
+    marginBottom: 10,
   },
   countdownSubtext: {
     textAlign: "center",
     color: BRAND_COLORS.textSecondary,
     fontSize: 12,
-    marginTop: 10,
   },
-  ticketsCard: {
+  statsCard: {
     backgroundColor: "#FFF",
     borderRadius: 20,
     padding: 20,
@@ -701,13 +911,13 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  ticketsHeader: {
+  statsHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 20,
   },
-  ticketsTitle: {
+  statsTitle: {
     fontSize: 18,
     fontWeight: "700",
     color: BRAND_COLORS.textPrimary,
@@ -726,32 +936,32 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginLeft: 6,
   },
-  ticketCountContainer: {
+  statsGrid: {
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "center",
     marginBottom: 20,
   },
-  ticketCount: {
+  statItem: {
     alignItems: "center",
     flex: 1,
   },
-  ticketCountNumber: {
+  statNumber: {
     fontSize: 28,
     fontWeight: "800",
     color: BRAND_COLORS.primary,
   },
-  ticketCountLabel: {
+  statLabel: {
     fontSize: 12,
     color: BRAND_COLORS.textSecondary,
     marginTop: 4,
   },
-  ticketDivider: {
+  statDivider: {
     width: 1,
     height: 40,
     backgroundColor: "#F0F0F0",
   },
-  buyTicketButton: {
+  playButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -760,12 +970,16 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 10,
   },
-  buyTicketText: {
+  playButtonText: {
     color: "#FFF",
     fontSize: 16,
     fontWeight: "700",
   },
-  numbersCard: {
+  disabledButton: {
+    backgroundColor: "#CCC",
+    opacity: 0.6,
+  },
+  recentPlaysCard: {
     backgroundColor: "#FFF",
     borderRadius: 20,
     padding: 20,
@@ -776,41 +990,79 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  numbersTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: BRAND_COLORS.textPrimary,
-    marginBottom: 15,
-    textAlign: "center",
-  },
-  numbersGrid: {
+  recentHeader: {
     flexDirection: "row",
-    justifyContent: "space-around",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 15,
   },
-  numberBadge: {
-    width: 50,
-    height: 50,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
+  recentTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: BRAND_COLORS.textPrimary,
   },
-  numberText: {
-    color: "#FFF",
+  viewAllText: {
+    color: BRAND_COLORS.primary,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  playItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
+  },
+  playDate: {
+    width: 50,
+    alignItems: "center",
+  },
+  playDay: {
+    fontSize: 11,
+    color: BRAND_COLORS.textSecondary,
+    fontWeight: "600",
+  },
+  playNumber: {
     fontSize: 20,
     fontWeight: "800",
+    color: BRAND_COLORS.textPrimary,
   },
-  numbersSubtext: {
-    textAlign: "center",
-    color: BRAND_COLORS.textSecondary,
+  playDetails: {
+    flex: 1,
+    marginLeft: 15,
+  },
+  playNumbers: {
+    fontSize: 13,
+    color: BRAND_COLORS.textPrimary,
+    fontWeight: "500",
+  },
+  playResult: {
     fontSize: 12,
+    marginTop: 4,
   },
-  weeklyProgressCard: {
+  winText: {
+    color: BRAND_COLORS.success,
+    fontWeight: "600",
+  },
+  lossText: {
+    color: BRAND_COLORS.textSecondary,
+  },
+  playStatus: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  winBadge: {
+    backgroundColor: "#28A74510",
+  },
+  lossBadge: {
+    backgroundColor: "#F0F0F0",
+  },
+  playStatusText: {
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  monthlyProgressCard: {
     backgroundColor: "#FFF",
     borderRadius: 20,
     padding: 20,
@@ -821,7 +1073,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  weeklyProgressTitle: {
+  monthlyProgressTitle: {
     fontSize: 18,
     fontWeight: "700",
     color: BRAND_COLORS.textPrimary,
@@ -852,23 +1104,67 @@ const styles = StyleSheet.create({
     height: 40,
     backgroundColor: "#F0F0F0",
   },
-  weeklyBarContainer: {
+  progressBarContainer: {
     height: 8,
     backgroundColor: "#F0F0F0",
     borderRadius: 4,
     overflow: "hidden",
     marginBottom: 15,
   },
-  weeklyBar: {
+  progressBar: {
     height: 8,
-    backgroundColor: "#8E2DE2",
     borderRadius: 4,
   },
-  weeklyProgressText: {
+  progressText: {
     textAlign: "center",
     color: BRAND_COLORS.textSecondary,
     fontSize: 13,
     fontWeight: "500",
+    marginBottom: 15,
+  },
+  buyButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#8E2DE2",
+    paddingVertical: 12,
+    borderRadius: 10,
+    gap: 8,
+  },
+  buyButtonText: {
+    color: "#FFF",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  benefitsCard: {
+    backgroundColor: "#FFF",
+    borderRadius: 20,
+    padding: 20,
+    marginTop: 15,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  benefitsTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: BRAND_COLORS.textPrimary,
+    marginBottom: 15,
+  },
+  benefitsList: {
+    gap: 10,
+  },
+  benefitItem: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  benefitText: {
+    marginLeft: 10,
+    fontSize: 13,
+    color: BRAND_COLORS.textPrimary,
+    flex: 1,
   },
   winnersCard: {
     backgroundColor: "#FFF",
@@ -884,7 +1180,6 @@ const styles = StyleSheet.create({
   winnersHeader: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     marginBottom: 15,
   },
   winnersTitle: {
@@ -894,10 +1189,27 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     flex: 1,
   },
-  seeAllText: {
-    color: BRAND_COLORS.primary,
+  winnerTypeFilter: {
+    flexDirection: "row",
+    backgroundColor: "#F0F0F0",
+    borderRadius: 20,
+    padding: 2,
+  },
+  winnerTypeButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 16,
+  },
+  activeWinnerType: {
+    backgroundColor: BRAND_COLORS.primary,
+  },
+  winnerTypeText: {
     fontSize: 12,
     fontWeight: "600",
+    color: BRAND_COLORS.textSecondary,
+  },
+  activeWinnerTypeText: {
+    color: "#FFF",
   },
   winnerRow: {
     flexDirection: "row",
@@ -915,10 +1227,15 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#FF7A0020",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
+  },
+  dailyAvatar: {
+    backgroundColor: "#FF7A0020",
+  },
+  monthlyAvatar: {
+    backgroundColor: "#8E2DE220",
   },
   winnerInitial: {
     color: BRAND_COLORS.primary,
@@ -934,10 +1251,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: BRAND_COLORS.textSecondary,
   },
+  winnerPrize: {
+    alignItems: "flex-end",
+  },
   winnerAmount: {
     fontSize: 16,
     fontWeight: "700",
-    color: BRAND_COLORS.success,
+    color: BRAND_COLORS.primary,
+  },
+  winnerTypeLabel: {
+    fontSize: 10,
+    color: BRAND_COLORS.textSecondary,
+    marginTop: 2,
   },
   infoSection: {
     backgroundColor: "#FFF",
@@ -952,16 +1277,16 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: "center",
   },
-  infoRow: {
+  infoSteps: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
   },
-  infoStep: {
+  step: {
     alignItems: "center",
     flex: 1,
-    paddingHorizontal: 5,
   },
-  stepNumber: {
+  stepIcon: {
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -970,7 +1295,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 10,
   },
-  stepNumberText: {
+  stepNumber: {
     color: BRAND_COLORS.primary,
     fontSize: 16,
     fontWeight: "700",
@@ -980,6 +1305,11 @@ const styles = StyleSheet.create({
     color: BRAND_COLORS.textSecondary,
     textAlign: "center",
     lineHeight: 16,
+  },
+  stepLine: {
+    width: 30,
+    height: 2,
+    backgroundColor: "#F0F0F0",
   },
   termsCard: {
     flexDirection: "row",

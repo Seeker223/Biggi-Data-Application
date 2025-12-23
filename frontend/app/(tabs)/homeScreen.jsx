@@ -1,4 +1,4 @@
-// frontend/app/%28tabs%29/homeScreen.jsx
+// frontend/app/(tabs)/homeScreen.jsx - UPDATED WITH MODALS INSTEAD OF ALERTS
 import React, { useContext, useCallback, useState, useRef, useEffect } from "react";
 import {
   View,
@@ -10,7 +10,6 @@ import {
   Dimensions,
   ActivityIndicator,
   Modal,
-  Alert,
   Platform,
   ActionSheetIOS,
   Animated,
@@ -34,7 +33,7 @@ const HomeScreen = () => {
     refreshUser, 
     authLoading, 
     updateUser,
-    notificationCount,  // Get notification count from context
+    notificationCount,
     markNotificationsAsSeen,
     resetNotificationCount
   } = useContext(AuthContext);
@@ -43,17 +42,47 @@ const HomeScreen = () => {
   const [previewVisible, setPreviewVisible] = useState(false);
   const [selectedImageUri, setSelectedImageUri] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [monthlyEligibility, setMonthlyEligibility] = useState({
+    purchases: 0,
+    required: 5,
+    progress: 0,
+    daysLeft: 0,
+    isEligible: false
+  });
+
+  // New modal states
+  const [permissionModalVisible, setPermissionModalVisible] = useState(false);
+  const [permissionModalData, setPermissionModalData] = useState({
+    title: "",
+    message: "",
+    type: "info"
+  });
+  
+  const [monthlyGameModalVisible, setMonthlyGameModalVisible] = useState(false);
+  const [monthlyGameModalData, setMonthlyGameModalData] = useState({
+    title: "",
+    message: "",
+    isEligible: false
+  });
+  
+  const [uploadModalVisible, setUploadModalVisible] = useState(false);
+  const [uploadModalData, setUploadModalData] = useState({
+    title: "",
+    message: "",
+    type: "success" // "success" or "error"
+  });
 
   const spinValue = useRef(new Animated.Value(0)).current;
   const notificationPulseAnim = useRef(new Animated.Value(1)).current;
+  const monthlyPulseAnim = useRef(new Animated.Value(1)).current;
 
   useFocusEffect(
     useCallback(() => {
       refreshUser();
-    }, [])
+      calculateMonthlyEligibility();
+    }, [user])
   );
 
-  // Notification pulse animation
   useEffect(() => {
     if (notificationCount > 0) {
       Animated.loop(
@@ -76,6 +105,26 @@ const HomeScreen = () => {
   }, [notificationCount]);
 
   useEffect(() => {
+    // Pulse animation for monthly game card when eligible
+    if (monthlyEligibility.isEligible) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(monthlyPulseAnim, {
+            toValue: 1.05,
+            duration: 1500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(monthlyPulseAnim, {
+            toValue: 1,
+            duration: 1500,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    }
+  }, [monthlyEligibility.isEligible]);
+
+  useEffect(() => {
     if (uploadingPhoto) {
       Animated.loop(
         Animated.timing(spinValue, {
@@ -90,10 +139,44 @@ const HomeScreen = () => {
     }
   }, [uploadingPhoto]);
 
+  const calculateMonthlyEligibility = () => {
+    const purchases = user?.dataBundleCount || 0;
+    const required = 5;
+    const now = new Date();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const daysLeft = daysInMonth - now.getDate();
+    
+    setMonthlyEligibility({
+      purchases,
+      required,
+      progress: Math.min(100, (purchases / required) * 100),
+      daysLeft: Math.max(0, daysLeft),
+      isEligible: purchases >= required
+    });
+  };
+
   const spin = spinValue.interpolate({
     inputRange: [0, 1],
     outputRange: ["0deg", "360deg"],
   });
+
+  // Permission modal function
+  const showPermissionModal = (title, message, type = "info") => {
+    setPermissionModalData({ title, message, type });
+    setPermissionModalVisible(true);
+  };
+
+  // Monthly game modal function
+  const showMonthlyGameModal = (title, message, isEligible) => {
+    setMonthlyGameModalData({ title, message, isEligible });
+    setMonthlyGameModalVisible(true);
+  };
+
+  // Upload result modal function
+  const showUploadModal = (title, message, type = "success") => {
+    setUploadModalData({ title, message, type });
+    setUploadModalVisible(true);
+  };
 
   if (authLoading || !user) {
     return (
@@ -112,10 +195,10 @@ const HomeScreen = () => {
   const goToWithdraw = () => navigation.navigate("withdrawScreen");
   const goToBundle = () => navigation.navigate("screens/BuyDataScreen");
   const goToRedeem = () => navigation.navigate("redeemScreen");
+  const goToDraws = () => navigation.navigate("screens/DailyLuckyDrawScreen");
   
-  // Updated notification navigation with mark as seen
   const goToNotification = () => {
-    markNotificationsAsSeen(); // Mark as seen when navigating
+    markNotificationsAsSeen();
     navigation.navigate("notificationScreen");
   };
 
@@ -124,15 +207,32 @@ const HomeScreen = () => {
     navigation.navigate("screens/DailyNumberDrawScreen");
   };
 
-  const handleWeeklyGame = () => {
-    if (tickets <= 0) return setTicketModalVisible(true);
-    navigation.navigate("screens/GameWinnersScreen");
+  const handleMonthlyGame = () => {
+    if (monthlyEligibility.isEligible) {
+      showMonthlyGameModal(
+        "Monthly Draw Eligible! 🎉",
+        `You've made ${monthlyEligibility.purchases} purchases this month.\n\n` +
+        `You're automatically entered into the ₦5,000 monthly draw!\n\n` +
+        `Draw happens at the end of the month (${monthlyEligibility.daysLeft} days left).`,
+        true
+      );
+    } else {
+      showMonthlyGameModal(
+        "Monthly Draw Eligibility",
+        `You need ${monthlyEligibility.required} data purchases this month to qualify for the ₦5,000 monthly draw.\n\n` +
+        `Your purchases this month: ${monthlyEligibility.purchases}/${monthlyEligibility.required}\n` +
+        `Progress: ${Math.round(monthlyEligibility.progress)}%\n` +
+        `Days left this month: ${monthlyEligibility.daysLeft}\n\n` +
+        `Keep buying data bundles to qualify!`,
+        false
+      );
+    }
   };
 
   const pickFromGallery = async () => {
     const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!granted) {
-      Alert.alert("Permission required", "Camera roll permission is required!");
+      showPermissionModal("Permission required", "Camera roll permission is required!");
       return;
     }
 
@@ -151,7 +251,7 @@ const HomeScreen = () => {
   const pickFromCamera = async () => {
     const { granted } = await ImagePicker.requestCameraPermissionsAsync();
     if (!granted) {
-      Alert.alert("Permission required", "Camera permission is required!");
+      showPermissionModal("Permission required", "Camera permission is required!");
       return;
     }
 
@@ -186,12 +286,13 @@ const HomeScreen = () => {
         updateUser({ photo: res.user.photo });
         setPreviewVisible(false);
         setSelectedImageUri(null);
+        showUploadModal("Success", "Profile photo updated successfully!", "success");
       } else {
-        Alert.alert("Upload Failed", res.msg || "Could not update photo");
+        showUploadModal("Upload Failed", res.msg || "Could not update photo", "error");
       }
     } catch (err) {
       console.log("Upload error:", err);
-      Alert.alert("Error", "Failed to upload image. Try again.");
+      showUploadModal("Error", "Failed to upload image. Try again.", "error");
     } finally {
       setUploadingPhoto(false);
     }
@@ -210,11 +311,18 @@ const HomeScreen = () => {
         }
       );
     } else {
-      Alert.alert("Update Photo", "Choose an option", [
-        { text: "Take Photo", onPress: pickFromCamera },
-        { text: "Choose from Gallery", onPress: pickFromGallery },
-        { text: "Cancel", style: "cancel" },
-      ]);
+      // For Android - use custom modal
+      setPermissionModalData({
+        title: "Update Photo",
+        message: "Choose an option",
+        type: "choice",
+        choices: [
+          { text: "Take Photo", action: pickFromCamera },
+          { text: "Choose from Gallery", action: pickFromGallery },
+          { text: "Cancel", action: () => setPermissionModalVisible(false) }
+        ]
+      });
+      setPermissionModalVisible(true);
     }
   };
 
@@ -309,7 +417,7 @@ const HomeScreen = () => {
           <Text style={{ color: "#FF7A00", fontWeight: "bold" }}>{tickets}</Text>
         </Text>
         <Text style={styles.infoText}>
-          ✅ Buy Any Bundle → Unlock Daily & {"\n"} Weekly Games + Monthly Draw
+          ✅ Buy Any Bundle → Unlock Daily Games + Monthly Draw
         </Text>
 
         {/* WHITE SECTION */}
@@ -354,7 +462,7 @@ const HomeScreen = () => {
                     <Text style={styles.ticketBadgeText}>{tickets}</Text>
                   </MotiView>
                 </View>
-                <Text style={styles.bundleDesc}>Win Daily Tickets + One-Time Weekly Ticket!</Text>
+                <Text style={styles.bundleDesc}>Win Daily Tickets + Monthly Draw Entry!</Text>
               </View>
             </MotiView>
 
@@ -367,6 +475,7 @@ const HomeScreen = () => {
             >
               <Ionicons name="game-controller" size={28} color="#fff" />
               <Text style={styles.gameTitle}>Daily Number Picker Game</Text>
+              <Text style={styles.gameSubtitle}>Win ₦2,000 Daily</Text>
               <TouchableOpacity
                 style={[styles.playBtn, tickets <= 0 ? styles.disabledBtn : null]}
                 onPress={handleDailyGame}
@@ -375,22 +484,69 @@ const HomeScreen = () => {
               </TouchableOpacity>
             </MotiView>
 
-            {/* WEEKLY GAME */}
-            <MotiView
-              from={{ scale: 1 }}
-              animate={{ scale: [1, 1.03, 1] }}
-              transition={{ loop: true, duration: 1800 }}
-              style={styles.gameCard}
+            {/* MONTHLY GAME */}
+            <Animated.View
+              style={[
+                styles.monthlyGameCard,
+                { transform: [{ scale: monthlyPulseAnim }] }
+              ]}
             >
-              <Ionicons name="football-outline" size={28} color="#fff" />
-              <Text style={styles.gameTitle}>Weekly Top Buyers Game</Text>
+              <View style={styles.monthlyHeader}>
+                <Ionicons name="trophy" size={24} color="#FFD700" />
+                <Text style={styles.monthlyTitle}>Monthly Draw</Text>
+                {monthlyEligibility.isEligible && (
+                  <View style={styles.eligibleBadge}>
+                    <Text style={styles.eligibleText}>ELIGIBLE</Text>
+                  </View>
+                )}
+              </View>
+              
+              <Text style={styles.monthlyPrize}>₦5,000</Text>
+              <Text style={styles.monthlySubtitle}>Monthly Jackpot</Text>
+              
+              {/* Monthly Progress */}
+              <View style={styles.progressContainer}>
+                <View style={styles.progressLabels}>
+                  <Text style={styles.progressText}>
+                    {monthlyEligibility.purchases}/{monthlyEligibility.required} purchases
+                  </Text>
+                  <Text style={styles.progressPercent}>
+                    {Math.round(monthlyEligibility.progress)}%
+                  </Text>
+                </View>
+                <View style={styles.progressBar}>
+                  <View 
+                    style={[
+                      styles.progressFill,
+                      { 
+                        width: `${monthlyEligibility.progress}%`,
+                        backgroundColor: monthlyEligibility.isEligible ? '#4CAF50' : '#8E2DE2'
+                      }
+                    ]} 
+                  />
+                </View>
+                <Text style={styles.daysLeftText}>
+                  {monthlyEligibility.daysLeft} days left this month
+                </Text>
+              </View>
+              
               <TouchableOpacity
-                style={[styles.playBtn, tickets <= 0 ? styles.disabledBtn : null]}
-                onPress={handleWeeklyGame}
+                style={[
+                  styles.monthlyBtn,
+                  monthlyEligibility.isEligible ? styles.eligibleBtn : styles.notEligibleBtn
+                ]}
+                onPress={handleMonthlyGame}
               >
-                <Text style={styles.playText}>Play Now</Text>
+                <Ionicons 
+                  name={monthlyEligibility.isEligible ? "checkmark-circle" : "information-circle"} 
+                  size={18} 
+                  color="#FFF" 
+                />
+                <Text style={styles.monthlyBtnText}>
+                  {monthlyEligibility.isEligible ? "You're Eligible!" : "Check Eligibility"}
+                </Text>
               </TouchableOpacity>
-            </MotiView>
+            </Animated.View>
           </LinearGradient>
         </View>
       </ScrollView>
@@ -422,9 +578,119 @@ const HomeScreen = () => {
           <View style={styles.modalBox}>
             <Ionicons name="alert-circle" size={42} color="#FF7A00" />
             <Text style={styles.modalTitle}>No Tickets Available</Text>
-            <Text style={styles.modalMsg}>You need at least 1 ticket to play this game.</Text>
-            <TouchableOpacity style={styles.modalBtn} onPress={() => setTicketModalVisible(false)}>
-              <Text style={styles.modalBtnText}>Okay</Text>
+            <Text style={styles.modalMsg}>You need at least 1 ticket to play daily games.</Text>
+            <TouchableOpacity style={styles.modalBtn} onPress={goToBundle}>
+              <Text style={styles.modalBtnText}>Buy Data Bundle</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.modalBtn, { backgroundColor: "#999", marginTop: 8 }]}
+              onPress={() => setTicketModalVisible(false)}
+            >
+              <Text style={styles.modalBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* PERMISSION MODAL */}
+      <Modal transparent visible={permissionModalVisible} animationType="fade">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalBox}>
+            <Ionicons 
+              name={permissionModalData.type === "error" ? "close-circle" : "information-circle"} 
+              size={42} 
+              color={permissionModalData.type === "error" ? "#FF3B30" : "#FF7A00"} 
+            />
+            <Text style={styles.modalTitle}>{permissionModalData.title}</Text>
+            <Text style={styles.modalMsg}>{permissionModalData.message}</Text>
+            
+            {permissionModalData.type === "choice" ? (
+              <View style={styles.modalChoiceContainer}>
+                {permissionModalData.choices?.map((choice, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.modalBtn,
+                      choice.text === "Cancel" && { backgroundColor: "#999" }
+                    ]}
+                    onPress={() => {
+                      setPermissionModalVisible(false);
+                      choice.action && choice.action();
+                    }}
+                  >
+                    <Text style={styles.modalBtnText}>{choice.text}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : (
+              <TouchableOpacity 
+                style={styles.modalBtn}
+                onPress={() => setPermissionModalVisible(false)}
+              >
+                <Text style={styles.modalBtnText}>OK</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* MONTHLY GAME MODAL */}
+      <Modal transparent visible={monthlyGameModalVisible} animationType="fade">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalBox}>
+            <Ionicons 
+              name={monthlyGameModalData.isEligible ? "trophy" : "information-circle"} 
+              size={42} 
+              color={monthlyGameModalData.isEligible ? "#FFD700" : "#FF7A00"} 
+            />
+            <Text style={styles.modalTitle}>{monthlyGameModalData.title}</Text>
+            <Text style={styles.modalMsg}>{monthlyGameModalData.message}</Text>
+            <View style={styles.modalBtnContainer}>
+              <TouchableOpacity 
+                style={[styles.modalBtn, { backgroundColor: "#FF7A00" }]}
+                onPress={() => {
+                  setMonthlyGameModalVisible(false);
+                  if (monthlyGameModalData.isEligible) {
+                    goToDraws();
+                  } else {
+                    goToBundle();
+                  }
+                }}
+              >
+                <Text style={styles.modalBtnText}>
+                  {monthlyGameModalData.isEligible ? "View Draws" : "Buy Data"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalBtn, { backgroundColor: "#999", marginTop: 8 }]}
+                onPress={() => setMonthlyGameModalVisible(false)}
+              >
+                <Text style={styles.modalBtnText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* UPLOAD RESULT MODAL */}
+      <Modal transparent visible={uploadModalVisible} animationType="fade">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalBox}>
+            <Ionicons 
+              name={uploadModalData.type === "success" ? "checkmark-circle" : "close-circle"} 
+              size={42} 
+              color={uploadModalData.type === "success" ? "#4CAF50" : "#FF3B30"} 
+            />
+            <Text style={styles.modalTitle}>{uploadModalData.title}</Text>
+            <Text style={styles.modalMsg}>{uploadModalData.message}</Text>
+            <TouchableOpacity 
+              style={[
+                styles.modalBtn,
+                { backgroundColor: uploadModalData.type === "success" ? "#4CAF50" : "#FF3B30" }
+              ]}
+              onPress={() => setUploadModalVisible(false)}
+            >
+              <Text style={styles.modalBtnText}>OK</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -447,7 +713,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  // NEW: Notification Badge Styles
   bellContainer: {
     position: "relative",
   },
@@ -455,7 +720,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: -6,
     right: -6,
-    backgroundColor: "#FF3B30", // Red badge
+    backgroundColor: "#FF3B30",
     borderRadius: 10,
     minWidth: 20,
     height: 20,
@@ -526,6 +791,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
+  infoText: {
+    color: "#fff",
+    fontSize: 13,
+    marginTop: 8,
+    textAlign: "center",
+  },
+
   disabledBtn: {
     backgroundColor: "#999",
     opacity: 0.6,
@@ -542,22 +814,48 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     padding: 25,
     borderRadius: 14,
-    width: "80%",
+    width: "85%",
     alignItems: "center",
   },
 
-  modalTitle: { fontWeight: "bold", fontSize: 18, marginTop: 10 },
-  modalMsg: { textAlign: "center", marginVertical: 12, color: "#444" },
+  modalTitle: { 
+    fontWeight: "bold", 
+    fontSize: 18, 
+    marginTop: 10,
+    textAlign: "center"
+  },
+  modalMsg: { 
+    textAlign: "center", 
+    marginVertical: 12, 
+    color: "#444",
+    lineHeight: 20,
+  },
 
   modalBtn: {
     backgroundColor: "#FF7A00",
     borderRadius: 8,
-    paddingVertical: 8,
+    paddingVertical: 12,
     paddingHorizontal: 25,
+    marginTop: 8,
+    minWidth: 120,
+    alignItems: "center",
+  },
+
+  modalBtnText: { 
+    color: "#fff", 
+    fontWeight: "bold", 
+    fontSize: 14 
+  },
+
+  modalBtnContainer: {
+    width: "100%",
     marginTop: 10,
   },
 
-  modalBtnText: { color: "#fff", fontWeight: "bold" },
+  modalChoiceContainer: {
+    width: "100%",
+    marginTop: 10,
+  },
 
   header: {
     flexDirection: "row",
@@ -576,6 +874,14 @@ const styles = StyleSheet.create({
     marginRight: 10,
     borderWidth: 2,
     borderColor: "#FF7A00",
+  },
+
+  avatarLoader: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
   },
 
   welcomeText: { color: "#fff", fontSize: 20, fontWeight: "700" },
@@ -628,13 +934,6 @@ const styles = StyleSheet.create({
 
   divider: { height: 1, backgroundColor: "#00000030", marginVertical: 10 },
 
-  infoText: {
-    color: "#fff",
-    fontSize: 13,
-    marginTop: 14,
-    textAlign: "center",
-  },
-
   whiteWrapper: {
     marginTop: 20,
     width,
@@ -649,6 +948,7 @@ const styles = StyleSheet.create({
     paddingTop: 25,
     paddingHorizontal: 16,
     minHeight: 500,
+    paddingBottom: 40,
   },
 
   bundleCard: {
@@ -698,7 +998,13 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "700",
     textAlign: "center",
-    marginVertical: 8,
+    marginVertical: 4,
+  },
+
+  gameSubtitle: {
+    color: "#FFD700",
+    fontSize: 12,
+    marginBottom: 8,
   },
 
   playBtn: {
@@ -709,4 +1015,139 @@ const styles = StyleSheet.create({
   },
 
   playText: { color: "#fff", fontWeight: "700" },
+
+  // MONTHLY GAME CARD STYLES
+  monthlyGameCard: {
+    backgroundColor: "#2B006A",
+    borderRadius: 16,
+    padding: 18,
+    marginTop: 18,
+  },
+
+  monthlyHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+
+  monthlyTitle: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "700",
+    marginLeft: 8,
+  },
+
+  eligibleBadge: {
+    backgroundColor: "#4CAF50",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: 8,
+  },
+
+  eligibleText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+
+  monthlyPrize: {
+    color: "#FFD700",
+    fontSize: 32,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+
+  monthlySubtitle: {
+    color: "rgba(255,255,255,0.8)",
+    textAlign: "center",
+    fontSize: 14,
+    marginBottom: 15,
+  },
+
+  progressContainer: {
+    marginBottom: 15,
+  },
+
+  progressLabels: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+
+  progressText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "500",
+  },
+
+  progressPercent: {
+    color: "#FFD700",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  progressBar: {
+    height: 6,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: 3,
+      overflow: "hidden",  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  daysLeftText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 11,
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  monthlyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    paddingVertical: 10,
+  },
+  eligibleBtn: {
+    backgroundColor: '#4CAF50',
+  },
+  notEligibleBtn: {
+    backgroundColor: '#8E2DE2',
+  },
+  monthlyBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+    marginLeft: 6,
+  },
+
+  // PREVIEW MODAL STYLES
+  previewBox: {
+    backgroundColor: '#fff',
+    padding: 25,
+    borderRadius: 14,
+    width: '90%',
+    alignItems: 'center',
+  },
+  previewTitle: {
+    fontWeight: 'bold',
+    fontSize: 18,
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  previewImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    marginVertical: 15,
+    borderWidth: 3,
+    borderColor: '#FF7A00',
+  },
+  previewBtns: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 15,
+  },
 });

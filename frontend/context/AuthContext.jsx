@@ -1,4 +1,4 @@
-// frontend/context/AuthContext.jsx
+// frontend/context/AuthContext.jsx - UPDATED FOR NO OTP
 import React, { createContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import api, { testBackendConnection } from "../utils/api";
@@ -12,7 +12,7 @@ export const AuthProvider = ({ children }) => {
   const [authLoading, setAuthLoading] = useState(true);
   const [depositHistory, setDepositHistory] = useState([]);
   
-  // NEW: Notification state
+  // Notification state
   const [notificationCount, setNotificationCount] = useState(0);
   const [lastSeenNotificationTime, setLastSeenNotificationTime] = useState(null);
 
@@ -32,7 +32,6 @@ export const AuthProvider = ({ children }) => {
         if (storedLastSeen) {
           setLastSeenNotificationTime(new Date(storedLastSeen));
         } else {
-          // Default to 24 hours ago
           const defaultTime = new Date();
           defaultTime.setDate(defaultTime.getDate() - 1);
           setLastSeenNotificationTime(defaultTime);
@@ -51,7 +50,6 @@ export const AuthProvider = ({ children }) => {
         if (res.data?.success) {
           setUser(res.data.user);
           await loadDepositHistory();
-          // Calculate notification count after loading deposit history
           await calculateNotificationCount();
         }
       } catch (err) {
@@ -68,18 +66,15 @@ export const AuthProvider = ({ children }) => {
   /* ---------------- Calculate Notification Count ---------------- */
   const calculateNotificationCount = async () => {
     try {
-      // Count new deposits since last seen
       const newDepositsCount = depositHistory.filter(deposit => {
         if (!lastSeenNotificationTime) return true;
         const depositDate = new Date(deposit.createdAt);
         return depositDate > lastSeenNotificationTime;
       }).length;
 
-      // Count other notifications (you can expand this logic)
-      const otherNotifications = 0; // Placeholder for other notification types
-
+      const otherNotifications = 0;
       const totalCount = newDepositsCount + otherNotifications;
-      setNotificationCount(totalCount > 9 ? 9 : totalCount); // Cap at 9
+      setNotificationCount(totalCount > 9 ? 9 : totalCount);
     } catch (error) {
       console.log("Error calculating notification count:", error);
       setNotificationCount(0);
@@ -119,7 +114,6 @@ export const AuthProvider = ({ children }) => {
       if (res.data?.success) {
         setUser(res.data.user);
         await loadDepositHistory();
-        // Recalculate notification count after refresh
         await calculateNotificationCount();
       }
     } catch (err) {
@@ -168,6 +162,7 @@ export const AuthProvider = ({ children }) => {
         birthDate,
       });
 
+      // SIMPLIFIED: User gets tokens immediately, no verification
       const { token: newToken, refreshToken: newRefresh, user: newUser } = res.data;
       await storeTokens(newToken, newRefresh);
       setUser(newUser);
@@ -252,7 +247,7 @@ export const AuthProvider = ({ children }) => {
         token,
         authLoading,
         depositHistory,
-        notificationCount, // NEW
+        notificationCount,
         login,
         register,
         logout,
@@ -260,9 +255,9 @@ export const AuthProvider = ({ children }) => {
         updateUser,
         setUser,
         loadDepositHistory,
-        markNotificationsAsSeen, // NEW
-        resetNotificationCount, // NEW
-        incrementNotificationCount, // NEW
+        markNotificationsAsSeen,
+        resetNotificationCount,
+        incrementNotificationCount,
       }}
     >
       {children}

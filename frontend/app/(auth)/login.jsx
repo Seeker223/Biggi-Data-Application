@@ -1,4 +1,4 @@
-//frontend/app/%28auth%29/login.jsx
+// frontend/app/(auth)/login.jsx - UPDATED FOR NO OTP
 import React, { useState, useContext } from "react";
 import {
   View,
@@ -25,16 +25,14 @@ export default function LoginScreen() {
   // Modal states
   const [modalVisible, setModalVisible] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
-  const [modalType, setModalType] = useState("error"); // 'success' | 'error'
-
-  const showModal = (message, type = "error") => {
-    setModalMessage(message);
-    setModalType(type);
-    setModalVisible(true);
-  };
+  const [modalType, setModalType] = useState("error");
 
   const handleLogin = async () => {
-    if (!email || !password) return showModal("Please enter your credentials.");
+    if (!email || !password) {
+      showModal("Please enter your credentials.", "error");
+      return;
+    }
+    
     setLoading(true);
     const res = await login(email, password);
     setLoading(false);
@@ -46,8 +44,15 @@ export default function LoginScreen() {
         router.replace("/(tabs)/homeScreen");
       }, 1200);
     } else {
-      showModal(res.error || "Login failed ");
+      // SIMPLIFIED: No verification checks
+      showModal(res.error || "Invalid email or password.", "error");
     }
+  };
+
+  const showModal = (message, type = "error") => {
+    setModalMessage(message);
+    setModalType(type);
+    setModalVisible(true);
   };
 
   return (
@@ -70,6 +75,7 @@ export default function LoginScreen() {
             value={email}
             onChangeText={setEmail}
             style={styles.textInput}
+            autoCapitalize="none"
           />
         </View>
 
@@ -133,14 +139,14 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.footerRow}>
-          <Text style={styles.footerText}>Don’t have an account? </Text>
+          <Text style={styles.footerText}>Don't have an account? </Text>
           <TouchableOpacity onPress={() => router.push("/(auth)/signup")}>
             <Text style={styles.footerLink}>Sign Up</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* ✅ Modal Component */}
+      {/* Modal Component */}
       <Modal transparent animationType="fade" visible={modalVisible}>
         <View style={styles.modalOverlay}>
           <View
@@ -169,10 +175,6 @@ export default function LoginScreen() {
     </ScrollView>
   );
 }
-
-//
-// ─── STYLES ────────────────────────────────────────────────────────────────
-//
 
 const styles = StyleSheet.create({
   scrollContainer: {

@@ -179,11 +179,22 @@ export const getWithdrawalHistory = async () => {
 };
 
 // -----------------------------------------------------------
-// DATA PURCHASE
+// DATA PURCHASE (UPDATED WITH MONTHLY TRACKING)
 // -----------------------------------------------------------
 export const buyData = async (payload) => {
   try {
     const res = await api.post("/data/buy", payload);
+    
+    if (res.data.success) {
+      // Update monthly purchase count
+      try {
+        await updateMonthlyPurchase();
+      } catch (monthlyError) {
+        console.log("Monthly purchase update failed (non-critical):", monthlyError);
+        // Continue anyway - main data purchase succeeded
+      }
+    }
+    
     return res.data;
   } catch (err) {
     return {
@@ -196,19 +207,37 @@ export const buyData = async (payload) => {
 export const getDataPurchaseHistory = () => api.get("/data/history");
 
 // -----------------------------------------------------------
-// GAMES
+// GAMES - DAILY & MONTHLY
 // -----------------------------------------------------------
+// DAILY GAMES
 export const playDailyGame = (numbers) =>
   api.post("/game/daily/play", { numbers });
 
 export const getDailyResult = () => api.get("/game/daily/result");
 
+export const getDailyGameHistory = () => api.get("/game/daily/history");
+
+// MONTHLY GAMES (NEW)
+export const getMonthlyEligibility = () => 
+  api.get("/game/monthly/eligibility");
+
+export const getMonthlyWinners = (month) => 
+  api.get("/game/monthly/winners", month ? { params: { month } } : {});
+
+export const claimMonthlyReward = (month) => 
+  api.post("/game/monthly/claim", { month });
+
+export const updateMonthlyPurchase = () => 
+  api.post("/game/monthly/purchase");
+
+// GAME TICKETS
+export const getGameTickets = () => api.get("/game/tickets");
+
+// WEEKLY GAMES (KEPT FOR BACKWARD COMPATIBILITY - WILL BE DEPRECATED)
 export const playWeeklyGame = (numbers) =>
   api.post("/game/weekly/play", { numbers });
 
 export const getWeeklyResult = () => api.get("/game/weekly/result");
-
-export const getGameTickets = () => api.get("/game/tickets");
 
 // -----------------------------------------------------------
 // LEADERBOARD
@@ -256,6 +285,37 @@ export const updateAvatar = async (formData) => {
 };
 
 // -----------------------------------------------------------
+// GAME HISTORY & STATISTICS
+// -----------------------------------------------------------
+export const getUserGameStats = async () => {
+  try {
+    const res = await api.get("/game/stats");
+    return res.data;
+  } catch (err) {
+    console.log("Failed to load game stats:", err);
+    return {
+      success: false,
+      stats: {
+        dailyWins: 0,
+        monthlyWins: 0,
+        totalWins: 0,
+        totalPrizeWon: 0,
+        tickets: 0,
+      }
+    };
+  }
+};
+
+export const claimDailyReward = (gameId) =>
+  api.post("/game/daily/claim", { gameId });
+
+// -----------------------------------------------------------
+// NOTIFICATIONS
+// -----------------------------------------------------------
+export const getNotifications = () => api.get("/user/notifications");
+export const markNotificationsAsRead = () => api.post("/user/notifications/read");
+
+// -----------------------------------------------------------
 // UTILITY FUNCTIONS
 // -----------------------------------------------------------
 export const checkConnection = async () => {
@@ -266,5 +326,93 @@ export const checkConnection = async () => {
     return false;
   }
 };
+
+// -----------------------------------------------------------
+// DATA BUNDLE MANAGEMENT
+// -----------------------------------------------------------
+export const getAvailableBundles = () => api.get("/data/bundles");
+export const getBundleCategories = () => api.get("/data/categories");
+
+// -----------------------------------------------------------
+// BULK DATA PURCHASE (FOR MONTHLY QUALIFICATION)
+// -----------------------------------------------------------
+export const bulkPurchaseData = async (bundles) => {
+  try {
+    const res = await api.post("/data/bulk-purchase", { bundles });
+    
+    if (res.data.success) {
+      // Update monthly purchase count for each bundle
+      try {
+        await updateMonthlyPurchase();
+      } catch (monthlyError) {
+        console.log("Monthly purchase update failed:", monthlyError);
+      }
+    }
+    
+    return res.data;
+  } catch (err) {
+    return {
+      success: false,
+      msg: err.response?.data?.msg || "Failed to purchase bundles",
+    };
+  }
+};
+
+// -----------------------------------------------------------
+// DRAW SCHEDULES
+// -----------------------------------------------------------
+export const getDrawSchedules = async () => {
+  try {
+    const res = await api.get("/game/schedules");
+    return res.data;
+  } catch (err) {
+    console.log("Failed to load draw schedules:", err);
+    return {
+      success: false,
+      schedules: {
+        daily: { time: "19:30", timezone: "WAT", recurring: "daily" },
+        monthly: { time: "23:59", timezone: "WAT", recurring: "monthly" },
+      }
+    };
+  }
+};
+
+// -----------------------------------------------------------
+// PRIZE DISTRIBUTION
+// -----------------------------------------------------------
+export const getPrizeDistribution = (type = "daily") => 
+  api.get(`/game/prizes/${type}`);
+
+// -----------------------------------------------------------
+// WINNER VERIFICATION
+// -----------------------------------------------------------
+export const verifyWinnerStatus = (drawType, drawDate) =>
+  api.post("/game/verify-winner", { drawType, drawDate });
+
+// -----------------------------------------------------------
+// GAME RULES & TERMS
+// -----------------------------------------------------------
+export const getGameRules = (gameType = "daily") =>
+  api.get(`/game/rules/${gameType}`);
+
+// -----------------------------------------------------------
+// TICKET MANAGEMENT
+// -----------------------------------------------------------
+export const getTicketHistory = () => api.get("/game/tickets/history");
+export const purchaseTickets = (quantity) => api.post("/game/tickets/purchase", { quantity });
+export const giftTicket = (recipientId, message) => 
+  api.post("/game/tickets/gift", { recipientId, message });
+
+// -----------------------------------------------------------
+// REFERRAL SYSTEM (IF APPLICABLE)
+// -----------------------------------------------------------
+export const getReferralStats = () => api.get("/user/referrals");
+export const generateReferralLink = () => api.post("/user/referrals/generate");
+
+// -----------------------------------------------------------
+// GAME ANALYTICS
+// -----------------------------------------------------------
+export const getGameAnalytics = (period = "monthly") =>
+  api.get(`/game/analytics/${period}`);
 
 export default api;
