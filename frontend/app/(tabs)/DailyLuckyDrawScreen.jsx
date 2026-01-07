@@ -1,3 +1,4 @@
+// frontend/app/(tabs)/DailyLuckyDrawScreen.jsx
 import React, { useEffect, useRef, useState, useContext } from "react";
 import {
   View,
