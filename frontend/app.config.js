@@ -4,6 +4,7 @@ export default {
     slug: "BiggiData",
     version: "1.0.0",
     orientation: "portrait",
+    owner: "seeker223",
     icon: "./assets/images/icon.png",
     scheme: "biggidata",
     userInterfaceStyle: "automatic",
