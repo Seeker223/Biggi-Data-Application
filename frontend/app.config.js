@@ -9,6 +9,13 @@ export default {
     scheme: "biggidata",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
+      updates: {
+    url: "https://u.expo.dev/6fb1c78c-cd5e-4bd7-be3a-d2088aa9b9a9",
+  },
+
+  runtimeVersion: {
+    policy: "appVersion",
+  },
 
     ios: {
       supportsTablet: true,
