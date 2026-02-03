@@ -143,18 +143,18 @@ const DailyLuckyDrawScreen = () => {
         .map(game => ({
           id: game._id,
           name: user?.username || "User",
-          amount: "₦2,000",
+          amount: FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? "—" : "₦2,000",
           time: new Date(game.createdAt).toLocaleDateString(),
           type: "daily"
         }));
 
       // Add some sample winners
       const sampleWinners = [
-        { id: "1", name: "Alex Johnson", amount: "₦2,000", time: "Today", type: "daily" },
-        { id: "2", name: "Sarah Williams", amount: "₦2,000", time: "Yesterday", type: "daily" },
-        { id: "3", name: "Michael Brown", amount: "₦5,000", time: "3 days ago", type: "monthly" },
-        { id: "4", name: "Emma Davis", amount: "₦2,000", time: "5 days ago", type: "daily" },
-        { id: "5", name: "James Wilson", amount: "₦5,000", time: "Last month", type: "monthly" },
+        { id: "1", name: "Alex Johnson", amount: FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? "—" : "₦2,000", time: "Today", type: "daily" },
+        { id: "2", name: "Sarah Williams", amount: FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? "—" : "₦2,000", time: "Yesterday", type: "daily" },
+        { id: "3", name: "Michael Brown", amount: FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? "—" : "₦5,000", time: "3 days ago", type: "monthly" },
+        { id: "4", name: "Emma Davis", amount: FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? "—" : "₦2,000", time: "5 days ago", type: "daily" },
+        { id: "5", name: "James Wilson", amount: FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? "—" : "₦5,000", time: "Last month", type: "monthly" },
       ];
 
       setWinners([...userWins, ...sampleWinners].slice(0, 5));

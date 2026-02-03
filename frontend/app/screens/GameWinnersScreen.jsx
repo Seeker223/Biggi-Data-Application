@@ -47,7 +47,7 @@ export default function GameWinnersScreen() {
       name: user?.username || "You",
       id: user?._id?.slice(-6) || "000000",
       type: "daily",
-      amount: "₦2,000",
+      amount: FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? "—" : "₦2,000",
       date: new Date(game.createdAt).toLocaleDateString('en-US', { 
         month: 'short', 
         day: 'numeric',
@@ -63,21 +63,21 @@ export default function GameWinnersScreen() {
     { 
       name: "Michael Brown", 
       id: "789012", 
-      amount: "₦5,000", 
+      amount: FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? "—" : "₦5,000", 
       date: "Jan 31, 2024",
       note: "Monthly Draw Winner"
     },
     { 
       name: "James Wilson", 
       id: "345678", 
-      amount: "₦5,000", 
+      amount: FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? "—" : "₦5,000", 
       date: "Dec 31, 2023",
       note: "Monthly Draw Winner"
     },
     { 
       name: "Robert Taylor", 
       id: "901234", 
-      amount: "₦5,000", 
+      amount: FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? "—" : "₦5,000", 
       date: "Nov 30, 2023",
       note: "Monthly Draw Winner"
     },
@@ -88,21 +88,21 @@ export default function GameWinnersScreen() {
     { 
       name: "Alex Johnson", 
       id: "123456", 
-      amount: "₦2,000", 
+      amount: FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? "—" : "₦2,000", 
       date: "Today, 7:30 PM",
       numbers: [15, 23, 42, 56, 68]
     },
     { 
       name: "Sarah Williams", 
       id: "234567", 
-      amount: "₦2,000", 
+      amount: FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? "—" : "₦2,000", 
       date: "Yesterday, 7:30 PM",
       numbers: [8, 19, 34, 47, 62]
     },
     { 
       name: "Emma Davis", 
       id: "456789", 
-      amount: "₦2,000", 
+      amount: FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? "—" : "₦2,000", 
       date: "2 Days Ago, 7:30 PM",
       numbers: [3, 27, 41, 55, 70]
     },
