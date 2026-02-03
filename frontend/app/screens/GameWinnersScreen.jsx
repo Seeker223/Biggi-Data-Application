@@ -14,6 +14,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { AuthContext } from "../../context/AuthContext";
+import { TEMP_DISABLE_GAME_AND_REDEEM } from "../../utils/api";
 
 export default function GameWinnersScreen() {
   const navigation = useNavigation();
@@ -111,6 +112,10 @@ export default function GameWinnersScreen() {
   const winners = activeTab === "daily" ? dailyWinners.slice(0, 10) : monthlyWinners;
 
   const handleClaim = () => {
+    if (TEMP_DISABLE_GAME_AND_REDEEM) {
+      Alert.alert("Feature Disabled", "Claiming rewards is temporarily disabled for Play Store review.");
+      return;
+    }
     if (userWins.length > 0) {
       const totalWinnings = userWins.length * 2000;
       setSuccessVisible(true);
@@ -274,13 +279,13 @@ export default function GameWinnersScreen() {
         {/* Action Buttons */}
         <View style={styles.actionButtons}>
           <TouchableOpacity
-            style={[styles.actionButton, styles.claimButton]}
+            style={[styles.actionButton, styles.claimButton, TEMP_DISABLE_GAME_AND_REDEEM && { opacity: 0.6 }]}
             onPress={handleClaim}
-            disabled={userWins.length === 0}
+            disabled={userWins.length === 0 || TEMP_DISABLE_GAME_AND_REDEEM}
           >
             <Ionicons name="cash" size={18} color="#FFF" />
             <Text style={styles.claimButtonText}>
-              {userWins.length > 0 ? `Claim ₦${userWins.length * 2000}` : "No Rewards"}
+              {TEMP_DISABLE_GAME_AND_REDEEM ? "Claiming Disabled" : (userWins.length > 0 ? `Claim ₦${userWins.length * 2000}` : "No Rewards")}
             </Text>
           </TouchableOpacity>
           

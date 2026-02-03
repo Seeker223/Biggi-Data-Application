@@ -130,6 +130,12 @@ api.interceptors.response.use(
 // -----------------------------------------------------------
 // 🔌 TEST BACKEND CONNECTION
 // -----------------------------------------------------------
+// -----------------------------------------------------------
+// TEMPORARY FEATURE FLAG
+// Set to `true` to disable game & redeem features during Play Store review
+// -----------------------------------------------------------
+export const TEMP_DISABLE_GAME_AND_REDEEM = true;
+
 export const testBackendConnection = async () => {
   try {
     const res = await api.get("/auth/ping");
@@ -163,7 +169,12 @@ export const getDepositStatus = (tx_ref) =>
 export const reconcilePayment = (tx_ref) =>
   api.post("/wallet/reconcile-payment", { tx_ref });
 
-export const redeemRewards = () => api.post("/wallet/redeem");
+export const redeemRewards = () => {
+  if (TEMP_DISABLE_GAME_AND_REDEEM) {
+    return Promise.resolve({ success: false, message: "Redeem is temporarily disabled for review." });
+  }
+  return api.post("/wallet/redeem");
+};
 
 export const withdrawFunds = (payload) =>
   api.post("/wallet/withdraw", payload);
@@ -306,8 +317,12 @@ export const getUserGameStats = async () => {
   }
 };
 
-export const claimDailyReward = (gameId) =>
-  api.post("/game/daily/claim", { gameId });
+export const claimDailyReward = (gameId) => {
+  if (TEMP_DISABLE_GAME_AND_REDEEM) {
+    return Promise.resolve({ success: false, message: "Claiming rewards is temporarily disabled for review." });
+  }
+  return api.post("/game/daily/claim", { gameId });
+};
 
 // -----------------------------------------------------------
 // NOTIFICATIONS

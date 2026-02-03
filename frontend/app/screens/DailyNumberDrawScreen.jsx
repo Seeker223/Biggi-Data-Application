@@ -16,13 +16,29 @@ import { Audio } from "expo-av";
 import { AuthContext } from "../../context/AuthContext";
 import { router } from "expo-router"; 
 
-import api from "../../utils/api";
+import api, { TEMP_DISABLE_GAME_AND_REDEEM } from "../../utils/api";
 
 const { width } = Dimensions.get("window");
 const BOX_SIZE = width / 10 - 5;
 
 export default function DailyNumberDrawScreen() {
   const { user, refreshUser } = useContext(AuthContext);
+
+  if (TEMP_DISABLE_GAME_AND_REDEEM) {
+    return (
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+        <Text style={{ color: "#fff", fontSize: 18, textAlign: "center", marginBottom: 12 }}>
+          The Daily Number Draw feature is temporarily disabled for Play Store review.
+        </Text>
+        <TouchableOpacity
+          style={[styles.submitButton, { width: 180 }]}
+          onPress={() => router.push("/")}
+        >
+          <Text style={styles.submitText}>Return Home</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   const [selectedNumbers, setSelectedNumbers] = useState([]);
   const [submitting, setSubmitting] = useState(false);

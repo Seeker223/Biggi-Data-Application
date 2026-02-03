@@ -16,7 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { AuthContext } from "../../context/AuthContext";
-import api from "../../utils/api";
+import api, { TEMP_DISABLE_GAME_AND_REDEEM } from "../../utils/api";
 
 const { width } = Dimensions.get("window");
 const BRAND_COLORS = {
@@ -36,6 +36,21 @@ const BRAND_COLORS = {
 const DailyLuckyDrawScreen = () => {
   const navigation = useNavigation();
   const { user, refreshUser } = useContext(AuthContext);
+  if (TEMP_DISABLE_GAME_AND_REDEEM) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 20 }}>
+        <Text style={{ fontSize: 18, color: "#000", textAlign: "center", marginBottom: 12 }}>
+          The Lucky Draw feature is temporarily disabled for Play Store review.
+        </Text>
+        <TouchableOpacity
+          style={{ backgroundColor: "#FF7A00", paddingVertical: 12, paddingHorizontal: 20, borderRadius: 10 }}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={{ color: "#fff", fontWeight: "700" }}>Return</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
   
   const [activeTab, setActiveTab] = useState("daily"); // 'daily' or 'monthly'
   const [refreshing, setRefreshing] = useState(false);
