@@ -238,9 +238,6 @@ export const getMonthlyEligibility = () =>
 export const getMonthlyWinners = (month) => 
   api.get("/game/monthly/winners", month ? { params: { month } } : {});
 
-export const claimMonthlyReward = (month) => 
-  api.post("/game/monthly/claim", { month });
-
 export const updateMonthlyPurchase = () => 
   api.post("/game/monthly/purchase");
 
