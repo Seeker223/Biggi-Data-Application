@@ -18,6 +18,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { AuthContext } from "../context/AuthContext";
 import api from "../utils/api";
+import { FEATURE_FLAGS } from "../constants/featureFlags";
 
 const WITHDRAWAL_CHARGE = 0;
 const MIN_WITHDRAWAL = 100;
@@ -70,6 +71,18 @@ const banks = [
 
 const WithdrawScreen = ({ navigation }) => {
   const { user, refreshUser } = useContext(AuthContext);
+
+  if (FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM) {
+    return (
+      <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Withdrawals Temporarily Disabled</Text>
+        <Text style={{ textAlign: 'center', color: '#444', marginBottom: 16 }}>Withdrawals are disabled while we undergo Play Store review.</Text>
+        <TouchableOpacity style={{ backgroundColor: '#FF7A00', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }} onPress={() => navigation.goBack()}>
+          <Text style={{ color: '#fff', fontWeight: '700' }}>Return</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    )
+  }
 
   const [amount, setAmount] = useState("");
   const [accountNumber, setAccountNumber] = useState("");

@@ -16,7 +16,8 @@ import { Audio } from "expo-av";
 import { AuthContext } from "../../context/AuthContext";
 import { router } from "expo-router"; 
 
-import api, { TEMP_DISABLE_GAME_AND_REDEEM } from "../../utils/api";
+import api from "../../utils/api";
+import { FEATURE_FLAGS } from "../../constants/featureFlags";
 
 const { width } = Dimensions.get("window");
 const BOX_SIZE = width / 10 - 5;
@@ -24,7 +25,7 @@ const BOX_SIZE = width / 10 - 5;
 export default function DailyNumberDrawScreen() {
   const { user, refreshUser } = useContext(AuthContext);
 
-  if (TEMP_DISABLE_GAME_AND_REDEEM) {
+  if (FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM) {
     return (
       <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
         <Text style={{ color: "#fff", fontSize: 18, textAlign: "center", marginBottom: 12 }}>

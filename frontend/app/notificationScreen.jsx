@@ -19,6 +19,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { AuthContext } from "../context/AuthContext";
 import api, { getWithdrawalHistory } from "../utils/api";
+import { FEATURE_FLAGS } from "../constants/featureFlags";
 
 // Import images if you have them
 // import images from '../../constants/images';
@@ -423,8 +424,10 @@ const NotificationScreen = () => {
           onPress={() => {
             if (activeTab === 'deposits') navigation.navigate("depositScreen");
             else if (activeTab === 'withdrawals') navigation.navigate("withdrawScreen");
-            else if (activeTab === 'games') navigation.navigate("DailyNumberDrawScreen");
-            else navigation.navigate("homeScreen");
+            else if (activeTab === 'games') {
+              if (FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM) navigation.navigate("(tabs)/homeScreen");
+              else navigation.navigate("DailyNumberDrawScreen");
+            } else navigation.navigate("homeScreen");
           }}
         >
           <Ionicons name="rocket" size={20} color="#fff" />

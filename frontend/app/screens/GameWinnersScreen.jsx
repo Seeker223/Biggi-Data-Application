@@ -14,7 +14,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { AuthContext } from "../../context/AuthContext";
-import { TEMP_DISABLE_GAME_AND_REDEEM } from "../../utils/api";
+import { FEATURE_FLAGS } from "../../constants/featureFlags";
 
 export default function GameWinnersScreen() {
   const navigation = useNavigation();
@@ -112,12 +112,12 @@ export default function GameWinnersScreen() {
   const winners = activeTab === "daily" ? dailyWinners.slice(0, 10) : monthlyWinners;
 
   const handleClaim = () => {
-    if (TEMP_DISABLE_GAME_AND_REDEEM) {
+    if (FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM) {
       Alert.alert("Feature Disabled", "Claiming rewards is temporarily disabled for Play Store review.");
       return;
     }
     if (userWins.length > 0) {
-      const totalWinnings = userWins.length * 2000;
+      const totalWinnings = FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? 0 : userWins.length * 2000;
       setSuccessVisible(true);
       
       // In a real app, you would call an API here to claim rewards
@@ -138,11 +138,17 @@ export default function GameWinnersScreen() {
   const handleCheckMonthlyEligibility = () => {
     Alert.alert(
       "Monthly Draw Eligibility",
-      `You need ${monthlyProgress.required} data purchases this month to qualify for the ₦5,000 monthly draw.\n\n` +
-      `Your purchases this month: ${monthlyProgress.purchases}/${monthlyProgress.required}\n` +
-      `Status: ${monthlyProgress.isEligible ? "🎉 ELIGIBLE!" : "Not yet eligible"}\n\n` +
-      `Monthly draw happens at the end of each month.\n` +
-      `Winners are automatically selected from all eligible players.`,
+      FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM
+        ? `You need ${monthlyProgress.required} data purchases this month to qualify for the monthly draw (prize hidden).\n\n` +
+          `Your purchases this month: ${monthlyProgress.purchases}/${monthlyProgress.required}\n` +
+          `Status: ${monthlyProgress.isEligible ? "🎉 ELIGIBLE!" : "Not yet eligible"}\n\n` +
+          `Monthly draw happens at the end of each month.\n` +
+          `Winners are automatically selected from all eligible players.`
+        : `You need ${monthlyProgress.required} data purchases this month to qualify for the ₦5,000 monthly draw.\n\n` +
+          `Your purchases this month: ${monthlyProgress.purchases}/${monthlyProgress.required}\n` +
+          `Status: ${monthlyProgress.isEligible ? "🎉 ELIGIBLE!" : "Not yet eligible"}\n\n` +
+          `Monthly draw happens at the end of each month.\n` +
+          `Winners are automatically selected from all eligible players.`,
       [
         { text: "Close", style: "cancel" },
         { text: "Buy Data", onPress: () => navigation.navigate("screens/BuyDataScreen") }
@@ -209,7 +215,7 @@ export default function GameWinnersScreen() {
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>Prize</Text>
               <Text style={styles.infoValue}>
-                {activeTab === "daily" ? "₦2,000" : "₦5,000"}
+                {FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? "Prize hidden" : (activeTab === "daily" ? "₦2,000" : "₦5,000")}
               </Text>
             </View>
             <View style={styles.infoDivider} />
@@ -253,7 +259,7 @@ export default function GameWinnersScreen() {
                 </View>
               </View>
               <View style={styles.winnerPrize}>
-                <Text style={styles.winnerAmount}>{winner.amount}</Text>
+                <Text style={styles.winnerAmount}>{FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? "—" : winner.amount}</Text>
                 <View style={[
                   styles.winnerTypeBadge,
                   winner.type === "monthly" ? styles.monthlyBadge : styles.dailyBadge
@@ -279,13 +285,13 @@ export default function GameWinnersScreen() {
         {/* Action Buttons */}
         <View style={styles.actionButtons}>
           <TouchableOpacity
-            style={[styles.actionButton, styles.claimButton, TEMP_DISABLE_GAME_AND_REDEEM && { opacity: 0.6 }]}
+            style={[styles.actionButton, styles.claimButton, FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM && { opacity: 0.6 }]}
             onPress={handleClaim}
-            disabled={userWins.length === 0 || TEMP_DISABLE_GAME_AND_REDEEM}
+            disabled={userWins.length === 0 || FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM}
           >
             <Ionicons name="cash" size={18} color="#FFF" />
             <Text style={styles.claimButtonText}>
-              {TEMP_DISABLE_GAME_AND_REDEEM ? "Claiming Disabled" : (userWins.length > 0 ? `Claim ₦${userWins.length * 2000}` : "No Rewards")}
+              {FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? "Claiming Disabled" : (userWins.length > 0 ? `Claim ₦${userWins.length * 2000}` : "No Rewards")}
             </Text>
           </TouchableOpacity>
           
@@ -331,7 +337,7 @@ export default function GameWinnersScreen() {
             </View>
             <Text style={styles.successTitle}>Rewards Claimed!</Text>
             <Text style={styles.successMsg}>
-              ₦{userWins.length * 2000} has been added to your reward balance.
+              {FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? "Rewards have been added to your reward balance." : `₦${userWins.length * 2000} has been added to your reward balance.`}
             </Text>
             <Text style={styles.successSubtext}>
               You can redeem your rewards anytime from your wallet.

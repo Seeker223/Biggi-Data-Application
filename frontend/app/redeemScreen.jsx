@@ -1,12 +1,12 @@
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native'
 import React from 'react'
-import { TEMP_DISABLE_GAME_AND_REDEEM } from '../utils/api'
+import { FEATURE_FLAGS } from '../constants/featureFlags'
 import { useRouter } from 'expo-router'
 
 const RedeemScreen = () => {
   const router = useRouter();
 
-  if (TEMP_DISABLE_GAME_AND_REDEEM) {
+  if (FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM) {
     return (
       <View style={styles.container}>
         <Text style={styles.title}>Redeem Temporarily Disabled</Text>

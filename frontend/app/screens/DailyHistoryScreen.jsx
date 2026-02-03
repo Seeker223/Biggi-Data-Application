@@ -71,6 +71,16 @@ export default function DailyHistoryScreen() {
     if (tickets <= 0) {
       navigation.navigate("depositScreen"); // or show a modal/warning
     } else {
+      // If games are disabled, redirect to home instead
+      try {
+        const { FEATURE_FLAGS } = require("../../constants/featureFlags");
+        if (FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM) {
+          navigation.navigate("(tabs)/homeScreen");
+          return;
+        }
+      } catch (e) {
+        // fallback: continue navigation
+      }
       navigation.navigate("DailyNumberDrawScreen");
     }
   };

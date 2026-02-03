@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Modal } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import { FEATURE_FLAGS } from "../../constants/featureFlags";
 
 const BuyDataSuccessScreen = () => {
   const [showTicketModal, setShowTicketModal] = useState(true);
@@ -15,6 +16,10 @@ const BuyDataSuccessScreen = () => {
 
   const handlePlayGame = () => {
     setShowClaimModal(false);
+    if (FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM) {
+      navigation.navigate("(tabs)/homeScreen");
+      return;
+    }
     navigation.navigate("screens/DailyNumberDrawScreen"); // navigate to your game dashboard
   };
 

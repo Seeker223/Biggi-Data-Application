@@ -1,6 +1,7 @@
 import { View, TouchableOpacity, StyleSheet, Platform } from "react-native"; 
 import { Ionicons } from "@expo/vector-icons"; import { MotiView } from "moti"; 
 import { useNavigation } from "@react-navigation/native"; 
+import { FEATURE_FLAGS } from "../constants/featureFlags";
 
 const FloatingBottomNav = () => { 
 
@@ -18,10 +19,10 @@ const FloatingBottomNav = () => {
         transition={{ loop: true, duration: 2000, delay: index * 300, }} 
         >
        <TouchableOpacity onPress={() => 
-       index === 0 ? navigation.navigate("(tabs)/homeScreen") : 
-       index === 1 ? navigation.navigate("(tabs)/DailyLuckyDrawScreen") : 
-       index === 2 ? navigation.navigate("withdrawScreen") :
-        navigation.navigate("screens/ProfileScreen") } > 
+      index === 0 ? navigation.navigate("(tabs)/homeScreen") : 
+      index === 1 ? (FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? navigation.navigate("(tabs)/homeScreen") : navigation.navigate("(tabs)/DailyLuckyDrawScreen")) : 
+      index === 2 ? navigation.navigate("withdrawScreen") :
+       navigation.navigate("screens/ProfileScreen") } > 
         <Ionicons name={icon} size={28} color={index === 0 ? "#FF7A00" : "#000"} /> 
         </TouchableOpacity> 
         </MotiView> ) )} 

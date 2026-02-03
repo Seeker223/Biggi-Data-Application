@@ -23,6 +23,7 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import FloatingBottomNav from "../../components/FloatingBottomNav";
 import { AuthContext } from "../../context/AuthContext";
 import { updateAvatar } from "../../utils/api";
+import { FEATURE_FLAGS } from "../../constants/featureFlags";
 
 const { width } = Dimensions.get("window");
 
@@ -195,7 +196,10 @@ const HomeScreen = () => {
   const goToWithdraw = () => navigation.navigate("withdrawScreen");
   const goToBundle = () => navigation.navigate("screens/BuyDataScreen");
   const goToRedeem = () => navigation.navigate("redeemScreen");
-  const goToDraws = () => navigation.navigate("screens/DailyLuckyDrawScreen");
+  const goToDraws = () => {
+    if (FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM) return navigation.navigate("(tabs)/homeScreen");
+    return navigation.navigate("screens/DailyLuckyDrawScreen");
+  };
   
   const goToNotification = () => {
     markNotificationsAsSeen();
@@ -203,6 +207,7 @@ const HomeScreen = () => {
   };
 
   const handleDailyGame = () => {
+    if (FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM) return navigation.navigate("(tabs)/homeScreen");
     if (tickets <= 0) return setTicketModalVisible(true);
     navigation.navigate("screens/DailyNumberDrawScreen");
   };
@@ -211,19 +216,17 @@ const HomeScreen = () => {
     if (monthlyEligibility.isEligible) {
       showMonthlyGameModal(
         "Monthly Draw Eligible! 🎉",
-        `You've made ${monthlyEligibility.purchases} purchases this month.\n\n` +
-        `You're automatically entered into the ₦5,000 monthly draw!\n\n` +
-        `Draw happens at the end of the month (${monthlyEligibility.daysLeft} days left).`,
+        FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM
+          ? `You've made ${monthlyEligibility.purchases} purchases this month.\n\nYou're automatically entered into the monthly draw (prize hidden).\n\nDraw happens at the end of the month (${monthlyEligibility.daysLeft} days left).`
+          : `You've made ${monthlyEligibility.purchases} purchases this month.\n\nYou're automatically entered into the ₦5,000 monthly draw!\n\nDraw happens at the end of the month (${monthlyEligibility.daysLeft} days left).`,
         true
       );
     } else {
       showMonthlyGameModal(
         "Monthly Draw Eligibility",
-        `You need ${monthlyEligibility.required} data purchases this month to qualify for the ₦5,000 monthly draw.\n\n` +
-        `Your purchases this month: ${monthlyEligibility.purchases}/${monthlyEligibility.required}\n` +
-        `Progress: ${Math.round(monthlyEligibility.progress)}%\n` +
-        `Days left this month: ${monthlyEligibility.daysLeft}\n\n` +
-        `Keep buying data bundles to qualify!`,
+        FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM
+          ? `You need ${monthlyEligibility.required} data purchases this month to qualify for the monthly draw (prize hidden).\n\nYour purchases this month: ${monthlyEligibility.purchases}/${monthlyEligibility.required}\nProgress: ${Math.round(monthlyEligibility.progress)}%\nDays left this month: ${monthlyEligibility.daysLeft}\n\nKeep buying data bundles to qualify!`
+          : `You need ${monthlyEligibility.required} data purchases this month to qualify for the ₦5,000 monthly draw.\n\nYour purchases this month: ${monthlyEligibility.purchases}/${monthlyEligibility.required}\nProgress: ${Math.round(monthlyEligibility.progress)}%\nDays left this month: ${monthlyEligibility.daysLeft}\n\nKeep buying data bundles to qualify!`,
         false
       );
     }
@@ -475,7 +478,7 @@ const HomeScreen = () => {
             >
               <Ionicons name="game-controller" size={28} color="#fff" />
               <Text style={styles.gameTitle}>Daily Number Picker Game</Text>
-              <Text style={styles.gameSubtitle}>Win ₦2,000 Daily</Text>
+              <Text style={styles.gameSubtitle}>{FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? "Win (prize hidden)" : "Win ₦2,000 Daily"}</Text>
               <TouchableOpacity
                 style={[styles.playBtn, tickets <= 0 ? styles.disabledBtn : null]}
                 onPress={handleDailyGame}
@@ -501,7 +504,7 @@ const HomeScreen = () => {
                 )}
               </View>
               
-              <Text style={styles.monthlyPrize}>₦5,000</Text>
+              <Text style={styles.monthlyPrize}>{FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? "Prize hidden" : "₦5,000"}</Text>
               <Text style={styles.monthlySubtitle}>Monthly Jackpot</Text>
               
               {/* Monthly Progress */}

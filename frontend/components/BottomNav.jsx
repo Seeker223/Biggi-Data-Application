@@ -2,6 +2,7 @@ import React from "react";
 import { View, TouchableOpacity, StyleSheet, Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import { FEATURE_FLAGS } from "../constants/featureFlags";
 
 export default function BottomNav({ }) {
   const navigation = useNavigation();
@@ -27,7 +28,9 @@ export default function BottomNav({ }) {
             index === 0
               ? navigation.navigate("homeScreen")
               : index === 1
-              ? navigation.navigate("(tabs)/DailyLuckyDrawScreen")
+              ? FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM
+                ? navigation.navigate("homeScreen")
+                : navigation.navigate("(tabs)/DailyLuckyDrawScreen")
               : index === 2
               ? navigation.navigate("WalletScreen")
               : navigation.navigate("screens/ProfileScreen")

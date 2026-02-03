@@ -16,7 +16,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { AuthContext } from "../../context/AuthContext";
-import api, { TEMP_DISABLE_GAME_AND_REDEEM } from "../../utils/api";
+import api from "../../utils/api";
+import { FEATURE_FLAGS } from "../../constants/featureFlags";
 
 const { width } = Dimensions.get("window");
 const BRAND_COLORS = {
@@ -36,7 +37,7 @@ const BRAND_COLORS = {
 const DailyLuckyDrawScreen = () => {
   const navigation = useNavigation();
   const { user, refreshUser } = useContext(AuthContext);
-  if (TEMP_DISABLE_GAME_AND_REDEEM) {
+  if (FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 20 }}>
         <Text style={{ fontSize: 18, color: "#000", textAlign: "center", marginBottom: 12 }}>
@@ -277,8 +278,8 @@ const DailyLuckyDrawScreen = () => {
           <Text style={styles.prizeTitle}>Daily Prize</Text>
         </View>
         
-        <Text style={styles.prizeAmount}>₦2,000</Text>
-        <Text style={styles.prizeSubtitle}>Two Thousand Naira</Text>
+        <Text style={styles.prizeAmount}>{FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? "Prize amount hidden" : "₦2,000"}</Text>
+        <Text style={styles.prizeSubtitle}>{FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? "" : "Two Thousand Naira"}</Text>
         
         <View style={styles.ticketInfo}>
           <View style={styles.ticketIcon}>
@@ -412,8 +413,8 @@ const DailyLuckyDrawScreen = () => {
           <Text style={styles.prizeTitle}>Monthly Jackpot</Text>
         </View>
         
-        <Text style={styles.prizeAmount}>₦5,000</Text>
-        <Text style={styles.prizeSubtitle}>Five Thousand Naira</Text>
+        <Text style={styles.prizeAmount}>{FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? "Prize amount hidden" : "₦5,000"}</Text>
+        <Text style={styles.prizeSubtitle}>{FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? "" : "Five Thousand Naira"}</Text>
         
         <View style={styles.ticketInfo}>
           <View style={[styles.ticketIcon, { backgroundColor: 'rgba(255,255,255,0.3)' }]}>
@@ -497,7 +498,7 @@ const DailyLuckyDrawScreen = () => {
         <View style={styles.benefitsList}>
           <View style={styles.benefitItem}>
             <Ionicons name="checkmark-circle" size={18} color="#4CAF50" />
-            <Text style={styles.benefitText}>Higher Prize Pool (₦5,000)</Text>
+            <Text style={styles.benefitText}>{FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? "Higher Prize Pool (hidden)" : "Higher Prize Pool (₦5,000)"}</Text>
           </View>
           <View style={styles.benefitItem}>
             <Ionicons name="checkmark-circle" size={18} color="#4CAF50" />
@@ -572,7 +573,7 @@ const DailyLuckyDrawScreen = () => {
               </View>
             </View>
             <View style={styles.winnerPrize}>
-              <Text style={styles.winnerAmount}>{winner.amount}</Text>
+              <Text style={styles.winnerAmount}>{FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM ? "—" : winner.amount}</Text>
               <Text style={styles.winnerTypeLabel}>
                 {winner.type === "monthly" ? "Monthly" : "Daily"}
               </Text>
@@ -618,10 +619,9 @@ const DailyLuckyDrawScreen = () => {
           style={styles.infoButton}
           onPress={() => Alert.alert(
             "Draw Information",
-            "• Daily Draw: Win ₦2,000 every day at 7:30 PM\n" +
-            "• Monthly Draw: Win ₦5,000 at month-end\n" +
-            "• 1 Ticket per data purchase\n" +
-            "• Auto-qualify for monthly with 5+ purchases"
+            FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM
+              ? "• Daily Draw: Prize amount temporarily hidden\n• Monthly Draw: Prize amount temporarily hidden\n• 1 Ticket per data purchase\n• Auto-qualify for monthly with 5+ purchases"
+              : "• Daily Draw: Win ₦2,000 every day at 7:30 PM\n• Monthly Draw: Win ₦5,000 at month-end\n• 1 Ticket per data purchase\n• Auto-qualify for monthly with 5+ purchases"
           )}
         >
           <Ionicons name="information-circle" size={24} color="#FFF" />

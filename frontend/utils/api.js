@@ -131,10 +131,9 @@ api.interceptors.response.use(
 // 🔌 TEST BACKEND CONNECTION
 // -----------------------------------------------------------
 // -----------------------------------------------------------
-// TEMPORARY FEATURE FLAG
-// Set to `true` to disable game & redeem features during Play Store review
+// Feature flags (centralised)
 // -----------------------------------------------------------
-export const TEMP_DISABLE_GAME_AND_REDEEM = true;
+import { FEATURE_FLAGS } from "../constants/featureFlags";
 
 export const testBackendConnection = async () => {
   try {
@@ -170,14 +169,18 @@ export const reconcilePayment = (tx_ref) =>
   api.post("/wallet/reconcile-payment", { tx_ref });
 
 export const redeemRewards = () => {
-  if (TEMP_DISABLE_GAME_AND_REDEEM) {
+  if (FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM) {
     return Promise.resolve({ success: false, message: "Redeem is temporarily disabled for review." });
   }
   return api.post("/wallet/redeem");
 };
 
-export const withdrawFunds = (payload) =>
-  api.post("/wallet/withdraw", payload);
+export const withdrawFunds = (payload) => {
+  if (FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM) {
+    return Promise.resolve({ success: false, message: "Withdrawals are temporarily disabled for review." });
+  }
+  return api.post("/wallet/withdraw", payload);
+};
 
 export const getWithdrawalHistory = async () => {
   try {
@@ -318,10 +321,17 @@ export const getUserGameStats = async () => {
 };
 
 export const claimDailyReward = (gameId) => {
-  if (TEMP_DISABLE_GAME_AND_REDEEM) {
+  if (FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM) {
     return Promise.resolve({ success: false, message: "Claiming rewards is temporarily disabled for review." });
   }
   return api.post("/game/daily/claim", { gameId });
+};
+
+export const claimMonthlyReward = (month) => {
+  if (FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM) {
+    return Promise.resolve({ success: false, message: "Claiming monthly rewards is temporarily disabled for review." });
+  }
+  return api.post("/game/monthly/claim", { month });
 };
 
 // -----------------------------------------------------------

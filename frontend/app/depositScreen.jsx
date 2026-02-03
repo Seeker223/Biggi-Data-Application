@@ -21,6 +21,7 @@ import api, {
   getDepositStatus, 
   reconcilePayment 
 } from "../utils/api";
+import { FEATURE_FLAGS } from "../constants/featureFlags";
 
 const SERVICE_CHARGE = 0;
 const POLL_INTERVAL = 3000;
@@ -29,6 +30,18 @@ const RECONCILE_ATTEMPTS = 3;
 
 const DepositScreen = ({ navigation }) => {
   const { user, refreshUser } = useContext(AuthContext);
+
+  if (FEATURE_FLAGS.DISABLE_GAME_AND_REDEEM) {
+    return (
+      <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Deposits Temporarily Disabled</Text>
+        <Text style={{ textAlign: 'center', color: '#444', marginBottom: 16 }}>Deposits are disabled while we undergo Play Store review.</Text>
+        <TouchableOpacity style={{ backgroundColor: '#FF7A00', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }} onPress={() => navigation.goBack()}>
+          <Text style={{ color: '#fff', fontWeight: '700' }}>Return</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    )
+  }
 
   const [amount, setAmount] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
