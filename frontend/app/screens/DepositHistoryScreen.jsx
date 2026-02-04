@@ -1,4 +1,8 @@
-import React, { useEffect, useState, useCallback } from "react";
+// ---------------------------------------------------------
+
+// DEPOSIT HISTORY SCREEN
+// Displays user's deposit history with auto-refresh for pending deposits
+// ---------------------------------------------------------
 import {
   View,
   Text,

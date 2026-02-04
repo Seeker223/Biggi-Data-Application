@@ -1,4 +1,3 @@
-// frontend/app/notificationScreen.jsx
 import React, { useState, useEffect, useContext, useCallback } from "react";
 import {
   View,
@@ -10,18 +9,18 @@ import {
   RefreshControl,
   SafeAreaView,
   Platform,
-  SectionList,
-  Image,
-  Alert,
   FlatList,
+  Dimensions,
+  Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { MotiView, MotiText } from "moti";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { AuthContext } from "../context/AuthContext";
 import api, { getWithdrawalHistory } from "../utils/api";
 
-// Import images if you have them
-// import images from '../../constants/images';
+const { width } = Dimensions.get("window");
 
 const NotificationScreen = () => {
   const navigation = useNavigation();
@@ -32,12 +31,13 @@ const NotificationScreen = () => {
     notificationCount 
   } = useContext(AuthContext);
   
-  const [activeTab, setActiveTab] = useState("all"); // 'all', 'deposits', 'withdrawals', 'games'
+  const [activeTab, setActiveTab] = useState("all"); // 'all', 'deposits', 'withdrawals', 'data'
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [deposits, setDeposits] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
-  const [games, setGames] = useState([]);
+  const [dataPurchases, setDataPurchases] = useState([]);
+  const fadeAnim = useState(new Animated.Value(0))[0];
 
   // Fetch all notification data
   const fetchNotificationData = useCallback(async () => {
@@ -46,7 +46,7 @@ const NotificationScreen = () => {
       await Promise.all([
         fetchDepositHistory(),
         fetchWithdrawalHistory(),
-        fetchGameHistory()
+        fetchDataPurchaseHistory()
       ]);
     } catch (error) {
       console.error("Error fetching notification data:", error);
@@ -80,19 +80,36 @@ const NotificationScreen = () => {
     }
   };
 
-  // Fetch game history from user context
-  const fetchGameHistory = () => {
-    if (user?.dailyNumberDraw) {
-      const sortedGames = [...user.dailyNumberDraw]
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-        .slice(0, 20); // Limit to 20 recent games
-      setGames(sortedGames);
+  // Fetch data purchase history
+  const fetchDataPurchaseHistory = async () => {
+    try {
+      // This endpoint needs to be created in your backend
+      // For now, we'll use user's dataBundleCount and create sample data
+      if (user?.dataBundleCount > 0) {
+        const samplePurchases = Array.from({ length: Math.min(10, user.dataBundleCount) }, (_, i) => ({
+          id: `data-${i}`,
+          network: ["MTN", "Airtel", "Glo", "9mobile"][i % 4],
+          phone: "080" + (100000000 + i).toString().substring(1),
+          plan: `${[1, 2, 5, 10, 20][i % 5]}GB Data Plan`,
+          amount: [500, 1000, 2000, 3000, 5000][i % 5],
+          status: "success",
+          createdAt: new Date(Date.now() - i * 86400000).toISOString()
+        }));
+        setDataPurchases(samplePurchases);
+      }
+    } catch (error) {
+      console.error("Error fetching data purchase history:", error);
     }
   };
 
   // Initial load
   useEffect(() => {
     fetchNotificationData();
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 800,
+      useNativeDriver: true,
+    }).start();
   }, [fetchNotificationData]);
 
   // Refresh when screen comes into focus
@@ -122,10 +139,17 @@ const NotificationScreen = () => {
   // Format full date
   const formatFullDate = (dateString) => {
     const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return "Today";
+    if (diffDays === 1) return "Yesterday";
+    if (diffDays < 7) return `${diffDays} days ago`;
+    
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
-      year: 'numeric'
     });
   };
 
@@ -134,14 +158,14 @@ const NotificationScreen = () => {
     switch (status) {
       case "successful":
         return {
-          icon: "checkmark-circle",
+          icon: "arrow-down-circle",
           color: "#28a745",
           label: "Successful",
           bgColor: "#E8F5E9"
         };
       case "pending":
         return {
-          icon: "time-outline",
+          icon: "time",
           color: "#FF7A00",
           label: "Pending",
           bgColor: "#FFF3E0"
@@ -155,7 +179,7 @@ const NotificationScreen = () => {
         };
       default:
         return {
-          icon: "cash-outline",
+          icon: "cash",
           color: "#FF7A00",
           label: "Deposit",
           bgColor: "#FFF3E0"
@@ -168,14 +192,14 @@ const NotificationScreen = () => {
     switch (status) {
       case "approved":
         return {
-          icon: "checkmark-circle",
+          icon: "arrow-up-circle",
           color: "#28a745",
           label: "Completed",
           bgColor: "#E8F5E9"
         };
       case "pending":
         return {
-          icon: "time-outline",
+          icon: "time",
           color: "#FF7A00",
           label: "Processing",
           bgColor: "#FFF3E0"
@@ -189,7 +213,7 @@ const NotificationScreen = () => {
         };
       default:
         return {
-          icon: "card-outline",
+          icon: "card",
           color: "#FF7A00",
           label: "Withdrawal",
           bgColor: "#FFF3E0"
@@ -197,22 +221,31 @@ const NotificationScreen = () => {
     }
   };
 
-  // Get game icon and color
-  const getGameIcon = (item) => {
-    if (item.isWinner) {
-      return {
-        icon: "trophy",
-        color: "#FFD700",
-        label: "Winner!",
-        bgColor: "#FFF8E1"
-      };
+  // Get data purchase icon and color
+  const getDataPurchaseIcon = (status) => {
+    switch (status) {
+      case "success":
+        return {
+          icon: "wifi",
+          color: "#2196F3",
+          label: "Delivered",
+          bgColor: "#E3F2FD"
+        };
+      case "pending":
+        return {
+          icon: "time",
+          color: "#FF7A00",
+          label: "Processing",
+          bgColor: "#FFF3E0"
+        };
+      default:
+        return {
+          icon: "wifi-outline",
+          color: "#2196F3",
+          label: "Data Purchase",
+          bgColor: "#E3F2FD"
+        };
     }
-    return {
-      icon: "game-controller",
-      color: "#2196F3",
-      label: "Game Play",
-      bgColor: "#E3F2FD"
-    };
   };
 
   // Filter items based on active tab
@@ -220,167 +253,161 @@ const NotificationScreen = () => {
     const allItems = [
       ...deposits.map(d => ({ ...d, type: 'deposit', date: d.createdAt })),
       ...withdrawals.map(w => ({ ...w, type: 'withdrawal', date: w.createdAt })),
-      ...games.map(g => ({ ...g, type: 'game', date: g.createdAt }))
+      ...dataPurchases.map(d => ({ ...d, type: 'data', date: d.createdAt }))
     ].sort((a, b) => new Date(b.date) - new Date(a.date));
 
     if (activeTab === 'all') return allItems;
     if (activeTab === 'deposits') return allItems.filter(item => item.type === 'deposit');
     if (activeTab === 'withdrawals') return allItems.filter(item => item.type === 'withdrawal');
-    if (activeTab === 'games') return allItems.filter(item => item.type === 'game');
+    if (activeTab === 'data') return allItems.filter(item => item.type === 'data');
     
     return allItems;
   };
 
   // Render notification item
-  const renderNotificationItem = ({ item }) => {
+  const renderNotificationItem = ({ item, index }) => {
     if (item.type === 'deposit') {
       const iconInfo = getDepositIcon(item.status);
       return (
-        <TouchableOpacity style={styles.notificationCard}>
-          <View style={[styles.iconWrapper, { backgroundColor: iconInfo.bgColor }]}>
-            <Ionicons name={iconInfo.icon} size={20} color={iconInfo.color} />
-          </View>
-          
-          <View style={styles.notificationContent}>
-            <View style={styles.notificationHeader}>
-              <Text style={styles.notificationTitle}>Deposit {iconInfo.label}</Text>
-              <Text style={[styles.notificationAmount, { color: iconInfo.color }]}>
-                ₦{item.amount?.toLocaleString()}
-              </Text>
-            </View>
+        <MotiView
+          from={{ opacity: 0, translateX: -20 }}
+          animate={{ opacity: 1, translateX: 0 }}
+          transition={{ delay: index * 50 }}
+        >
+          <TouchableOpacity style={styles.notificationCard}>
+            <LinearGradient
+              colors={[iconInfo.bgColor, iconInfo.bgColor]}
+              style={styles.iconWrapper}
+            >
+              <Ionicons name={iconInfo.icon} size={22} color={iconInfo.color} />
+            </LinearGradient>
             
-            <Text style={styles.notificationMessage}>
-              {item.channel === "flutterwave" ? "Flutterwave Payment" : "Bank Transfer"}
-              {item.reference && ` • Ref: ${item.reference.substring(0, 10)}...`}
-            </Text>
-            
-            <View style={styles.notificationFooter}>
-              <View style={[styles.statusTag, { backgroundColor: iconInfo.bgColor }]}>
-                <Text style={[styles.statusText, { color: iconInfo.color }]}>
-                  {iconInfo.label}
+            <View style={styles.notificationContent}>
+              <View style={styles.notificationHeader}>
+                <Text style={styles.notificationTitle}>Deposit {iconInfo.label}</Text>
+                <Text style={[styles.notificationAmount, { color: iconInfo.color }]}>
+                  ₦{item.amount?.toLocaleString()}
                 </Text>
               </View>
-              <Text style={styles.notificationTime}>
-                {formatTime(item.createdAt)} • {formatFullDate(item.createdAt)}
+              
+              <Text style={styles.notificationMessage}>
+                {item.channel === "flutterwave" ? "Flutterwave Payment" : "Bank Transfer"}
+                {item.reference && ` • Ref: ${item.reference.substring(0, 10)}...`}
               </Text>
+              
+              <View style={styles.notificationFooter}>
+                <View style={[styles.statusTag, { backgroundColor: iconInfo.bgColor }]}>
+                  <Text style={[styles.statusText, { color: iconInfo.color }]}>
+                    {iconInfo.label}
+                  </Text>
+                </View>
+                <Text style={styles.notificationTime}>
+                  {formatTime(item.createdAt)} • {formatFullDate(item.createdAt)}
+                </Text>
+              </View>
             </View>
-          </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </MotiView>
       );
     }
 
     if (item.type === 'withdrawal') {
       const iconInfo = getWithdrawalIcon(item.status);
       return (
-        <TouchableOpacity style={styles.notificationCard}>
-          <View style={[styles.iconWrapper, { backgroundColor: iconInfo.bgColor }]}>
-            <Ionicons name={iconInfo.icon} size={20} color={iconInfo.color} />
-          </View>
-          
-          <View style={styles.notificationContent}>
-            <View style={styles.notificationHeader}>
-              <Text style={styles.notificationTitle}>Withdrawal {iconInfo.label}</Text>
-              <Text style={[styles.notificationAmount, { color: iconInfo.color }]}>
-                ₦{item.amount?.toLocaleString()}
-              </Text>
-            </View>
+        <MotiView
+          from={{ opacity: 0, translateX: -20 }}
+          animate={{ opacity: 1, translateX: 0 }}
+          transition={{ delay: index * 50 }}
+        >
+          <TouchableOpacity style={styles.notificationCard}>
+            <LinearGradient
+              colors={[iconInfo.bgColor, iconInfo.bgColor]}
+              style={styles.iconWrapper}
+            >
+              <Ionicons name={iconInfo.icon} size={22} color={iconInfo.color} />
+            </LinearGradient>
             
-            <Text style={styles.notificationMessage}>
-              {item.bank} • {item.accountNumber?.substring(item.accountNumber.length - 4)}
-              {item.reference && ` • Ref: ${item.reference.substring(0, 10)}...`}
-            </Text>
-            
-            <View style={styles.notificationFooter}>
-              <View style={[styles.statusTag, { backgroundColor: iconInfo.bgColor }]}>
-                <Text style={[styles.statusText, { color: iconInfo.color }]}>
-                  {iconInfo.label}
+            <View style={styles.notificationContent}>
+              <View style={styles.notificationHeader}>
+                <Text style={styles.notificationTitle}>Withdrawal {iconInfo.label}</Text>
+                <Text style={[styles.notificationAmount, { color: iconInfo.color }]}>
+                  ₦{item.amount?.toLocaleString()}
                 </Text>
               </View>
-              <Text style={styles.notificationTime}>
-                {formatTime(item.createdAt)} • {formatFullDate(item.createdAt)}
+              
+              <Text style={styles.notificationMessage}>
+                {item.bank} • {item.accountNumber?.substring(item.accountNumber.length - 4)}
+                {item.reference && ` • Ref: ${item.reference.substring(0, 10)}...`}
               </Text>
+              
+              <View style={styles.notificationFooter}>
+                <View style={[styles.statusTag, { backgroundColor: iconInfo.bgColor }]}>
+                  <Text style={[styles.statusText, { color: iconInfo.color }]}>
+                    {iconInfo.label}
+                  </Text>
+                </View>
+                <Text style={styles.notificationTime}>
+                  {formatTime(item.createdAt)} • {formatFullDate(item.createdAt)}
+                </Text>
+              </View>
             </View>
-          </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </MotiView>
       );
     }
 
-    if (item.type === 'game') {
-      const iconInfo = getGameIcon(item);
-      const picked = Array.isArray(item.numbers) ? item.numbers : [];
-      const result = Array.isArray(item.result) ? item.result : [];
-      const matchedCount = result.length 
-        ? picked.filter(n => result.includes(n)).length 
-        : 0;
-
+    if (item.type === 'data') {
+      const iconInfo = getDataPurchaseIcon(item.status);
       return (
-        <TouchableOpacity style={styles.notificationCard}>
-          <View style={[styles.iconWrapper, { backgroundColor: iconInfo.bgColor }]}>
-            <Ionicons name={iconInfo.icon} size={20} color={iconInfo.color} />
-          </View>
-          
-          <View style={styles.notificationContent}>
-            <View style={styles.notificationHeader}>
-              <Text style={styles.notificationTitle}>Daily Number Game</Text>
-              <Text style={[styles.notificationAmount, { color: iconInfo.color }]}>
-                {iconInfo.label}
-              </Text>
-            </View>
+        <MotiView
+          from={{ opacity: 0, translateX: -20 }}
+          animate={{ opacity: 1, translateX: 0 }}
+          transition={{ delay: index * 50 }}
+        >
+          <TouchableOpacity style={styles.notificationCard}>
+            <LinearGradient
+              colors={[iconInfo.bgColor, iconInfo.bgColor]}
+              style={styles.iconWrapper}
+            >
+              <Ionicons name={iconInfo.icon} size={22} color={iconInfo.color} />
+            </LinearGradient>
             
-            <View style={styles.gameNumbers}>
-              <Text style={styles.gameNumbersLabel}>Your picks: </Text>
-              <View style={styles.numberList}>
-                {picked.slice(0, 5).map((n, idx) => (
-                  <View 
-                    key={idx} 
-                    style={[
-                      styles.numberBubble,
-                      result.includes(n) && styles.matchedBubble
-                    ]}
-                  >
-                    <Text style={[
-                      styles.numberText,
-                      result.includes(n) && styles.matchedText
-                    ]}>
-                      {n}
-                    </Text>
-                  </View>
-                ))}
-                {picked.length > 5 && (
-                  <Text style={styles.moreNumbers}>+{picked.length - 5}</Text>
-                )}
-              </View>
-            </View>
-            
-            {result.length > 0 && (
-              <View style={styles.gameResult}>
-                <Text style={styles.gameResultLabel}>Draw result: </Text>
-                <View style={styles.numberList}>
-                  {result.slice(0, 3).map((r, idx) => (
-                    <View key={idx} style={styles.resultBubble}>
-                      <Text style={styles.resultText}>{r}</Text>
-                    </View>
-                  ))}
-                  {result.length > 3 && (
-                    <Text style={styles.moreNumbers}>+{result.length - 3}</Text>
-                  )}
-                </View>
-                <Text style={styles.matchCount}>{matchedCount} matched</Text>
-              </View>
-            )}
-            
-            <View style={styles.notificationFooter}>
-              <View style={[styles.statusTag, { backgroundColor: iconInfo.bgColor }]}>
-                <Text style={[styles.statusText, { color: iconInfo.color }]}>
-                  {iconInfo.label}
+            <View style={styles.notificationContent}>
+              <View style={styles.notificationHeader}>
+                <Text style={styles.notificationTitle}>Data Purchase</Text>
+                <Text style={[styles.notificationAmount, { color: iconInfo.color }]}>
+                  ₦{item.amount?.toLocaleString()}
                 </Text>
               </View>
-              <Text style={styles.notificationTime}>
-                {formatTime(item.createdAt)} • {formatFullDate(item.createdAt)}
-              </Text>
+              
+              <View style={styles.dataDetails}>
+                <View style={styles.dataDetailRow}>
+                  <Ionicons name="phone-portrait" size={12} color="#666" />
+                  <Text style={styles.dataDetailText}>{item.phone}</Text>
+                </View>
+                <View style={styles.dataDetailRow}>
+                  <Ionicons name="wifi" size={12} color="#666" />
+                  <Text style={styles.dataDetailText}>{item.network}</Text>
+                </View>
+                <View style={styles.dataDetailRow}>
+                  <Ionicons name="document-text" size={12} color="#666" />
+                  <Text style={styles.dataDetailText}>{item.plan}</Text>
+                </View>
+              </View>
+              
+              <View style={styles.notificationFooter}>
+                <View style={[styles.statusTag, { backgroundColor: iconInfo.bgColor }]}>
+                  <Text style={[styles.statusText, { color: iconInfo.color }]}>
+                    {iconInfo.label}
+                  </Text>
+                </View>
+                <Text style={styles.notificationTime}>
+                  {formatTime(item.createdAt)} • {formatFullDate(item.createdAt)}
+                </Text>
+              </View>
             </View>
-          </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </MotiView>
       );
     }
 
@@ -392,19 +419,23 @@ const NotificationScreen = () => {
     let message = "";
     let icon = "notifications-outline";
     let actionText = "";
+    let actionRoute = "homeScreen";
 
     switch (activeTab) {
       case 'deposits':
         message = "No deposit history yet";
         actionText = "Make Your First Deposit";
+        actionRoute = "depositScreen";
         break;
       case 'withdrawals':
         message = "No withdrawals yet";
         actionText = "Make a Withdrawal";
+        actionRoute = "withdrawScreen";
         break;
-      case 'games':
-        message = "No game history yet";
-        actionText = "Play Daily Game";
+      case 'data':
+        message = "No data purchases yet";
+        actionText = "Buy Data Bundle";
+        actionRoute = "screens/BuyDataScreen";
         break;
       default:
         message = "No notifications yet";
@@ -414,18 +445,20 @@ const NotificationScreen = () => {
     return (
       <View style={styles.emptyContainer}>
         <Ionicons name={icon} size={80} color="#FF7A00" style={{ opacity: 0.5 }} />
-        <Text style={styles.emptyText}>{message}</Text>
+        <MotiText
+          from={{ opacity: 0, translateY: 10 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: "timing", duration: 600 }}
+          style={styles.emptyText}
+        >
+          {message}
+        </MotiText>
         <Text style={styles.emptySubText}>
           Your {activeTab === 'all' ? 'activities' : activeTab} will appear here
         </Text>
         <TouchableOpacity 
           style={styles.emptyActionButton}
-          onPress={() => {
-            if (activeTab === 'deposits') navigation.navigate("depositScreen");
-            else if (activeTab === 'withdrawals') navigation.navigate("withdrawScreen");
-            else if (activeTab === 'games') navigation.navigate("DailyNumberDrawScreen");
-            else navigation.navigate("homeScreen");
-          }}
+          onPress={() => navigation.navigate(actionRoute)}
         >
           <Ionicons name="rocket" size={20} color="#fff" />
           <Text style={styles.emptyActionText}>{actionText}</Text>
@@ -436,10 +469,10 @@ const NotificationScreen = () => {
 
   // Tabs configuration
   const tabs = [
-    { id: 'all', label: 'All', icon: 'apps' },
-    { id: 'deposits', label: 'Deposits', icon: 'cash' },
-    { id: 'withdrawals', label: 'Withdrawals', icon: 'card' },
-    { id: 'games', label: 'Games', icon: 'game-controller' },
+    { id: 'all', label: 'All', icon: 'apps', count: deposits.length + withdrawals.length + dataPurchases.length },
+    { id: 'deposits', label: 'Deposits', icon: 'cash', count: deposits.length },
+    { id: 'withdrawals', label: 'Withdrawals', icon: 'card', count: withdrawals.length },
+    { id: 'data', label: 'Data', icon: 'wifi', count: dataPurchases.length },
   ];
 
   // If loading
@@ -447,20 +480,21 @@ const NotificationScreen = () => {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
-          <View style={styles.header}>
+          {/* Header */}
+          <LinearGradient
+            colors={["#FF7A00", "#FF5C00"]}
+            style={styles.header}
+          >
             <TouchableOpacity onPress={() => navigation.goBack()}>
-              <Ionicons name="arrow-back" size={24} color="#fff" />
+              <Ionicons name="arrow-back" size={26} color="#fff" />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Notifications</Text>
-            {notificationCount > 0 && (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>{notificationCount}</Text>
-              </View>
-            )}
-          </View>
+            <View style={{ width: 26 }} />
+          </LinearGradient>
+          
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#FF7A00" />
-            <Text style={styles.loadingText}>Loading notifications...</Text>
+            <Text style={styles.loadingText}>Loading activities...</Text>
           </View>
         </View>
       </SafeAreaView>
@@ -471,11 +505,14 @@ const NotificationScreen = () => {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         {/* Header */}
-        <View style={styles.header}>
+        <LinearGradient
+          colors={["#FF7A00", "#FF5C00"]}
+          style={styles.header}
+        >
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
+            <Ionicons name="arrow-back" size={26} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Notifications</Text>
+          <Text style={styles.headerTitle}>Activity History</Text>
           <View style={styles.headerRight}>
             {notificationCount > 0 && (
               <View style={styles.notificationBadge}>
@@ -483,35 +520,63 @@ const NotificationScreen = () => {
               </View>
             )}
             <TouchableOpacity onPress={onRefresh} style={styles.refreshButton}>
-              <Ionicons name="refresh" size={20} color="#FF7A00" />
+              <Ionicons name="refresh" size={22} color="#fff" />
             </TouchableOpacity>
           </View>
-        </View>
+        </LinearGradient>
 
         {/* Stats Summary */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{deposits.length}</Text>
-            <Text style={styles.statLabel}>Deposits</Text>
+        <MotiView
+          from={{ opacity: 0, translateY: 20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ delay: 100 }}
+          style={styles.statsContainer}
+        >
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <LinearGradient
+                colors={["#28A745", "#20C997"]}
+                style={styles.statIcon}
+              >
+                <Ionicons name="arrow-down" size={18} color="#fff" />
+              </LinearGradient>
+              <View style={styles.statContent}>
+                <Text style={styles.statValue}>{deposits.length}</Text>
+                <Text style={styles.statLabel}>Deposits</Text>
+              </View>
+            </View>
+
+            <View style={styles.statDivider} />
+
+            <View style={styles.statItem}>
+              <LinearGradient
+                colors={["#007BFF", "#0056CC"]}
+                style={styles.statIcon}
+              >
+                <Ionicons name="arrow-up" size={18} color="#fff" />
+              </LinearGradient>
+              <View style={styles.statContent}>
+                <Text style={styles.statValue}>{withdrawals.length}</Text>
+                <Text style={styles.statLabel}>Withdrawals</Text>
+              </View>
+            </View>
+
+            <View style={styles.statDivider} />
+
+            <View style={styles.statItem}>
+              <LinearGradient
+                colors={["#FF7A00", "#FF9A00"]}
+                style={styles.statIcon}
+              >
+                <Ionicons name="wifi" size={18} color="#fff" />
+              </LinearGradient>
+              <View style={styles.statContent}>
+                <Text style={styles.statValue}>{dataPurchases.length}</Text>
+                <Text style={styles.statLabel}>Data Purchases</Text>
+              </View>
+            </View>
           </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{withdrawals.length}</Text>
-            <Text style={styles.statLabel}>Withdrawals</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{games.length}</Text>
-            <Text style={styles.statLabel}>Games</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>
-              {games.filter(g => g.isWinner).length}
-            </Text>
-            <Text style={styles.statLabel}>Wins</Text>
-          </View>
-        </View>
+        </MotiView>
 
         {/* Tabs */}
         <ScrollView 
@@ -520,47 +585,70 @@ const NotificationScreen = () => {
           style={styles.tabsContainer}
           contentContainerStyle={styles.tabsContent}
         >
-          {tabs.map((tab) => (
-            <TouchableOpacity
+          {tabs.map((tab, index) => (
+            <MotiView
               key={tab.id}
-              style={[
-                styles.tabButton,
-                activeTab === tab.id && styles.tabButtonActive
-              ]}
-              onPress={() => setActiveTab(tab.id)}
+              from={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 200 + (index * 100) }}
             >
-              <Ionicons 
-                name={tab.icon} 
-                size={16} 
-                color={activeTab === tab.id ? "#fff" : "#666"} 
-              />
-              <Text style={[
-                styles.tabText,
-                activeTab === tab.id && styles.tabTextActive
-              ]}>
-                {tab.label}
-              </Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.tabButton,
+                  activeTab === tab.id && styles.tabButtonActive
+                ]}
+                onPress={() => setActiveTab(tab.id)}
+              >
+                <Ionicons 
+                  name={tab.icon} 
+                  size={18} 
+                  color={activeTab === tab.id ? "#fff" : "#666"} 
+                />
+                <Text style={[
+                  styles.tabText,
+                  activeTab === tab.id && styles.tabTextActive
+                ]}>
+                  {tab.label}
+                </Text>
+                {tab.count > 0 && (
+                  <View style={[
+                    styles.tabBadge,
+                    activeTab === tab.id && styles.tabBadgeActive
+                  ]}>
+                    <Text style={styles.tabBadgeText}>{tab.count}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </MotiView>
           ))}
         </ScrollView>
 
         {/* Notifications List */}
-        <FlatList
-          data={getFilteredItems()}
-          renderItem={renderNotificationItem}
-          keyExtractor={(item, index) => `${item.type}-${item._id || index}`}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={["#FF7A00"]}
-              tintColor="#FF7A00"
-            />
-          }
-          ListEmptyComponent={renderEmptyState}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        />
+        <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+          <FlatList
+            data={getFilteredItems()}
+            renderItem={renderNotificationItem}
+            keyExtractor={(item, index) => `${item.type}-${item._id || item.id || index}`}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={["#FF7A00"]}
+                tintColor="#FF7A00"
+              />
+            }
+            ListEmptyComponent={renderEmptyState}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            ListHeaderComponent={
+              getFilteredItems().length > 0 ? (
+                <Text style={styles.sectionTitle}>
+                  Recent Activities
+                </Text>
+              ) : null
+            }
+          />
+        </Animated.View>
       </View>
     </SafeAreaView>
   );
@@ -571,32 +659,129 @@ export default NotificationScreen;
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "#fff",
   },
   container: {
     flex: 1,
     backgroundColor: "#fff",
   },
   header: {
+    paddingTop: Platform.OS === 'ios' ? 10 : 20,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#000",
-    paddingVertical: 16,
-    paddingHorizontal: 20,
     justifyContent: "space-between",
-    paddingTop: Platform.OS === 'ios' ? 10 : 20,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#FF7A00",
+    color: "#fff",
+    fontSize: 22,
+    fontWeight: "800",
   },
   headerRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 15,
   },
   notificationBadge: {
+    backgroundColor: "#FF3B30",
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 6,
+  },
+  notificationBadgeText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  refreshButton: {
+    padding: 4,
+  },
+  statsContainer: {
+    backgroundColor: "#f9f9f9",
+    marginHorizontal: 20,
+    marginTop: 20,
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#f0f0f0",
+  },
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+  },
+  statItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  statIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  statContent: {
+    flex: 1,
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#000",
+  },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#666",
+    marginTop: 4,
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: "#e0e0e0",
+  },
+  tabsContainer: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 15,
+  },
+  tabsContent: {
+    paddingVertical: 5,
+  },
+  tabButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: "#f5f5f5",
+    marginRight: 12,
+    gap: 8,
+    position: "relative",
+  },
+  tabButtonActive: {
+    backgroundColor: "#FF7A00",
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#666",
+  },
+  tabTextActive: {
+    color: "#fff",
+  },
+  tabBadge: {
+    position: "absolute",
+    top: -6,
+    right: -6,
     backgroundColor: "#FF3B30",
     borderRadius: 10,
     minWidth: 20,
@@ -605,108 +790,48 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 4,
   },
-  notificationBadgeText: {
-    color: "#fff",
+  tabBadgeActive: {
+    backgroundColor: "#fff",
+  },
+  tabBadgeText: {
+    color: "#FF3B30",
     fontSize: 10,
     fontWeight: "900",
   },
-  refreshButton: {
-    padding: 4,
-  },
-  statsContainer: {
-    flexDirection: "row",
-    backgroundColor: "#f8f8f8",
-    marginHorizontal: 20,
-    marginTop: 15,
-    marginBottom: 10,
-    borderRadius: 16,
-    paddingVertical: 18,
-    paddingHorizontal: 10,
-    justifyContent: "space-around",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: "#f0f0f0",
-  },
-  statItem: {
-    alignItems: "center",
-    flex: 1,
-  },
-  statValue: {
-    fontSize: 22,
-    fontWeight: "800",
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
     color: "#000",
-  },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#666",
-    marginTop: 6,
-  },
-  statDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: "#FF7A00",
-    opacity: 0.3,
-  },
-  tabsContainer: {
-    marginHorizontal: 20,
-    marginBottom: 10,
-  },
-  tabsContent: {
-    paddingVertical: 5,
-  },
-  tabButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: "#f0f0f0",
-    marginRight: 10,
-    gap: 6,
-  },
-  tabButtonActive: {
-    backgroundColor: "#FF7A00",
-  },
-  tabText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#666",
-  },
-  tabTextActive: {
-    color: "#fff",
+    marginBottom: 15,
+    paddingLeft: 5,
   },
   listContent: {
     paddingHorizontal: 20,
     paddingBottom: Platform.OS === 'ios' ? 100 : 120,
+    paddingTop: 10,
   },
   notificationCard: {
     flexDirection: "row",
     alignItems: "flex-start",
-    padding: 16,
+    padding: 18,
     backgroundColor: "#fff",
-    borderRadius: 14,
+    borderRadius: 18,
     marginBottom: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowRadius: 6,
+    elevation: 3,
     borderWidth: 1,
     borderColor: "#f0f0f0",
   },
   iconWrapper: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 14,
+    marginRight: 16,
   },
   notificationContent: {
     flex: 1,
@@ -715,112 +840,58 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 6,
+    marginBottom: 8,
   },
   notificationTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
     color: "#000",
   },
   notificationAmount: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "800",
   },
   notificationMessage: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "500",
     color: "#444",
-    marginBottom: 10,
-    lineHeight: 18,
+    marginBottom: 12,
+    lineHeight: 20,
   },
   notificationFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 8,
+    marginTop: 10,
   },
   statusTag: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: 12,
   },
   statusText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "600",
   },
   notificationTime: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "500",
     color: "#999",
   },
-  // Game specific styles
-  gameNumbers: {
+  // Data purchase specific styles
+  dataDetails: {
+    marginBottom: 12,
+  },
+  dataDetailRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 6,
   },
-  gameNumbersLabel: {
+  dataDetailText: {
     fontSize: 13,
-    fontWeight: "600",
-    color: "#333",
-  },
-  numberList: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-    flex: 1,
-  },
-  numberBubble: {
-    backgroundColor: "#f0f0f0",
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    marginRight: 6,
-    marginBottom: 4,
-  },
-  matchedBubble: {
-    backgroundColor: "#FF7A00",
-  },
-  numberText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#333",
-  },
-  matchedText: {
-    color: "#fff",
-  },
-  moreNumbers: {
-    fontSize: 11,
-    color: "#666",
-    marginLeft: 4,
-  },
-  gameResult: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  gameResultLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#333",
-  },
-  resultBubble: {
-    backgroundColor: "#2196F3",
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    marginRight: 6,
-  },
-  resultText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#fff",
-  },
-  matchCount: {
-    fontSize: 11,
-    fontWeight: "600",
     color: "#666",
     marginLeft: 8,
+    flex: 1,
   },
   // Loading and empty states
   loadingContainer: {
@@ -829,22 +900,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 12,
     fontWeight: "500",
     color: "#666",
+    fontSize: 14,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 80,
+    paddingVertical: 60,
     paddingHorizontal: 20,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: "700",
+    fontSize: 20,
+    fontWeight: "800",
     color: "#000",
     marginTop: 20,
+    textAlign: "center",
   },
   emptySubText: {
     fontSize: 14,
@@ -853,19 +926,20 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: "center",
     lineHeight: 20,
+    maxWidth: 300,
   },
   emptyActionButton: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#FF7A00",
-    paddingHorizontal: 24,
+    paddingHorizontal: 28,
     paddingVertical: 14,
     borderRadius: 30,
     marginTop: 30,
     gap: 10,
     shadowColor: "#FF7A00",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 5,
   },

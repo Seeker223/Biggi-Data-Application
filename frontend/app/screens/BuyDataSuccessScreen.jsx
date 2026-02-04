@@ -1,204 +1,160 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Modal } from "react-native";
-import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+// BuyDataSuccessScreen.jsx - COMPLIANT VERSION
+import React from "react";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useNavigation, useRoute } from "@react-navigation/native";
 
 const BuyDataSuccessScreen = () => {
-  const [showTicketModal, setShowTicketModal] = useState(true);
-  const [showClaimModal, setShowClaimModal] = useState(false);
   const navigation = useNavigation();
-
-  const handleClaimTicket = () => {
-    setShowTicketModal(false);
-    setShowClaimModal(true);
-  };
-
-  const handlePlayGame = () => {
-    setShowClaimModal(false);
-    navigation.navigate("screens/DailyNumberDrawScreen"); // navigate to your game dashboard
-  };
+  const route = useRoute();
+  
+  // Get data from route params
+  const { phone, network, plan, price } = route.params || {};
 
   return (
     <View style={styles.container}>
-      {/* ✅ Ticket Reward Modal */}
-      <Modal visible={showTicketModal} transparent animationType="fade">
-        <View style={styles.modalContainer}>
-          <View style={styles.modalCard}>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setShowTicketModal(false)}
-            >
-              <Ionicons name="close-circle" size={28} color="#FF4C4C" />
-            </TouchableOpacity>
-
-            <View style={styles.ticketCard}>
-              <MaterialCommunityIcons
-                name="ticket-confirmation"
-                size={40}
-                color="#FF8C00"
-                style={styles.ticketIcon}
-              />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.ticketTitle}>Congratulations!!!</Text>
-                <Text style={styles.ticketSubtitle}>
-                  One ticket has been added to your account {"\n"}as a reward for
-                  purchasing a data bundle
-                </Text>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={styles.claimButton}
-              onPress={handleClaimTicket}
-            >
-              <Text style={styles.claimButtonText}>Claim here</Text>
-            </TouchableOpacity>
-
-            <Text style={styles.noteText}>
-              Note: use ticket to play the daily game
+      <View style={styles.successCard}>
+        <Ionicons name="checkmark-circle" size={80} color="#4CAF50" />
+        
+        <Text style={styles.successTitle}>Data Purchase Successful!</Text>
+        
+        <View style={styles.detailsBox}>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Phone Number:</Text>
+            <Text style={styles.detailValue}>{phone || "N/A"}</Text>
+          </View>
+          
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Network:</Text>
+            <Text style={styles.detailValue}>{network || "N/A"}</Text>
+          </View>
+          
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Data Plan:</Text>
+            <Text style={styles.detailValue}>{plan || "N/A"}</Text>
+          </View>
+          
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Amount Paid:</Text>
+            <Text style={[styles.detailValue, styles.amountText]}>
+              ₦{(price || 0).toLocaleString()}
             </Text>
           </View>
         </View>
-      </Modal>
-
-      {/* ✅ Claim Success Modal */}
-      <Modal visible={showClaimModal} transparent animationType="fade">
-        <View style={styles.modalContainer}>
-          <View style={styles.modalCard}>
-            <MaterialCommunityIcons
-              name="check-circle"
-              size={60}
-              color="green"
-            />
-            <Text style={styles.successTitle}>Success</Text>
-            <Text style={styles.successMessage}>
-              Ticket Claim Successful
-            </Text>
-
-            <TouchableOpacity
-              style={styles.playButton}
-              onPress={handlePlayGame}
-            >
-              <Text style={styles.playButtonText}>Play game now</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.exitButton}
-              onPress={() => navigation.navigate("(tabs)/homeScreen")}
-            >
-              <Text style={styles.exitButtonText}>Exit</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+        
+        <Text style={styles.deliveryNote}>
+          ✅ Your data bundle will be delivered within 2-5 minutes.
+        </Text>
+        
+        <TouchableOpacity
+          style={styles.doneButton}
+          onPress={() => navigation.navigate("(tabs)/homeScreen")}
+        >
+          <Text style={styles.doneButtonText}>Done</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={styles.buyAgainButton}
+          onPress={() => navigation.navigate("screens/BuyDataScreen")}
+        >
+          <Text style={styles.buyAgainButtonText}>Buy Another Bundle</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
 
-export default BuyDataSuccessScreen;
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f9f9f9",
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    alignItems: "center",
+    backgroundColor: "#f5f5f5",
     justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
   },
-  modalCard: {
-    width: "85%",
+  successCard: {
     backgroundColor: "#fff",
     borderRadius: 20,
     padding: 25,
+    width: "100%",
+    maxWidth: 400,
     alignItems: "center",
     shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 6,
-    elevation: 6,
-  },
-  closeButton: {
-    position: "absolute",
-    right: 10,
-    top: 10,
-  },
-  ticketCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 15,
-    padding: 15,
-    marginVertical: 25,
-  },
-  ticketIcon: {
-    marginRight: 15,
-  },
-  ticketTitle: {
-    fontFamily: "Poppins-Bold",
-    fontSize: 18,
-    color: "#111",
-  },
-  ticketSubtitle: {
-    fontFamily: "Poppins-Regular",
-    fontSize: 13,
-    color: "#555",
-    marginTop: 4,
-  },
-  claimButton: {
-    backgroundColor: "#FF8C00",
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 40,
-  },
-  claimButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontFamily: "Poppins-SemiBold",
-  },
-  noteText: {
-    marginTop: 10,
-    color: "#FF8C00",
-    fontFamily: "Poppins-Regular",
-    fontSize: 12,
-    textAlign: "center",
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 5,
   },
   successTitle: {
-    fontFamily: "Poppins-Bold",
-    fontSize: 20,
+    fontSize: 22,
+    fontWeight: "700",
     color: "#000",
-    marginTop: 10,
-  },
-  successMessage: {
-    fontFamily: "Poppins-Regular",
-    fontSize: 14,
-    color: "#555",
-    marginVertical: 10,
-  },
-  playButton: {
-    backgroundColor: "#FF8C00",
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 40,
     marginTop: 15,
+    marginBottom: 25,
+    textAlign: "center",
   },
-  playButtonText: {
+  detailsBox: {
+    width: "100%",
+    backgroundColor: "#f9f9f9",
+    borderRadius: 12,
+    padding: 18,
+    marginBottom: 20,
+  },
+  detailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  detailLabel: {
+    fontSize: 14,
+    color: "#666",
+    fontWeight: "500",
+  },
+  detailValue: {
+    fontSize: 14,
+    color: "#000",
+    fontWeight: "600",
+  },
+  amountText: {
+    color: "#FF7A00",
+    fontSize: 16,
+  },
+  deliveryNote: {
+    fontSize: 14,
+    color: "#4CAF50",
+    textAlign: "center",
+    marginBottom: 25,
+    lineHeight: 20,
+  },
+  doneButton: {
+    backgroundColor: "#FF7A00",
+    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 40,
+    width: "100%",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  doneButtonText: {
     color: "#fff",
     fontSize: 16,
-    fontFamily: "Poppins-SemiBold",
+    fontWeight: "700",
   },
-  exitButton: {
-    backgroundColor: "#eee",
+  buyAgainButton: {
+    backgroundColor: "#fff",
     borderRadius: 10,
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 40,
-    marginTop: 10,
+    width: "100%",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#FF7A00",
   },
-  exitButtonText: {
-    color: "#000",
+  buyAgainButtonText: {
+    color: "#FF7A00",
     fontSize: 16,
-    fontFamily: "Poppins-SemiBold",
+    fontWeight: "700",
   },
 });
+
+export default BuyDataSuccessScreen;
