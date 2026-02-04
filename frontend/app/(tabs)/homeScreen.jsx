@@ -1,4 +1,4 @@
-// frontend/app/(tabs)/homeScreen.jsx - UPDATED WITH MODALS INSTEAD OF ALERTS
+// frontend/app/(tabs)/homeScreen.jsx - NO GAMBLING ELEMENTS
 import React, { useContext, useCallback, useState, useRef, useEffect } from "react";
 import {
   View,
@@ -34,21 +34,12 @@ const HomeScreen = () => {
     authLoading, 
     updateUser,
     notificationCount,
-    markNotificationsAsSeen,
-    resetNotificationCount
+    markNotificationsAsSeen
   } = useContext(AuthContext);
 
-  const [ticketModalVisible, setTicketModalVisible] = useState(false);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [selectedImageUri, setSelectedImageUri] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [monthlyEligibility, setMonthlyEligibility] = useState({
-    purchases: 0,
-    required: 5,
-    progress: 0,
-    daysLeft: 0,
-    isEligible: false
-  });
 
   // New modal states
   const [permissionModalVisible, setPermissionModalVisible] = useState(false);
@@ -58,28 +49,19 @@ const HomeScreen = () => {
     type: "info"
   });
   
-  const [monthlyGameModalVisible, setMonthlyGameModalVisible] = useState(false);
-  const [monthlyGameModalData, setMonthlyGameModalData] = useState({
-    title: "",
-    message: "",
-    isEligible: false
-  });
-  
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
   const [uploadModalData, setUploadModalData] = useState({
     title: "",
     message: "",
-    type: "success" // "success" or "error"
+    type: "success"
   });
 
   const spinValue = useRef(new Animated.Value(0)).current;
   const notificationPulseAnim = useRef(new Animated.Value(1)).current;
-  const monthlyPulseAnim = useRef(new Animated.Value(1)).current;
 
   useFocusEffect(
     useCallback(() => {
       refreshUser();
-      calculateMonthlyEligibility();
     }, [user])
   );
 
@@ -105,26 +87,6 @@ const HomeScreen = () => {
   }, [notificationCount]);
 
   useEffect(() => {
-    // Pulse animation for monthly game card when eligible
-    if (monthlyEligibility.isEligible) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(monthlyPulseAnim, {
-            toValue: 1.05,
-            duration: 1500,
-            useNativeDriver: true,
-          }),
-          Animated.timing(monthlyPulseAnim, {
-            toValue: 1,
-            duration: 1500,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    }
-  }, [monthlyEligibility.isEligible]);
-
-  useEffect(() => {
     if (uploadingPhoto) {
       Animated.loop(
         Animated.timing(spinValue, {
@@ -139,22 +101,6 @@ const HomeScreen = () => {
     }
   }, [uploadingPhoto]);
 
-  const calculateMonthlyEligibility = () => {
-    const purchases = user?.dataBundleCount || 0;
-    const required = 5;
-    const now = new Date();
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const daysLeft = daysInMonth - now.getDate();
-    
-    setMonthlyEligibility({
-      purchases,
-      required,
-      progress: Math.min(100, (purchases / required) * 100),
-      daysLeft: Math.max(0, daysLeft),
-      isEligible: purchases >= required
-    });
-  };
-
   const spin = spinValue.interpolate({
     inputRange: [0, 1],
     outputRange: ["0deg", "360deg"],
@@ -164,12 +110,6 @@ const HomeScreen = () => {
   const showPermissionModal = (title, message, type = "info") => {
     setPermissionModalData({ title, message, type });
     setPermissionModalVisible(true);
-  };
-
-  // Monthly game modal function
-  const showMonthlyGameModal = (title, message, isEligible) => {
-    setMonthlyGameModalData({ title, message, isEligible });
-    setMonthlyGameModalVisible(true);
   };
 
   // Upload result modal function
@@ -189,44 +129,18 @@ const HomeScreen = () => {
 
   const mainBalance = Number(user.mainBalance || 0);
   const rewardBalance = Number(user.rewardBalance || 0);
-  const tickets = Number(user.tickets || 0);
+  const dataBundleCount = Number(user.dataBundleCount || 0);
+  const totalSavings = Number(user.totalSavings || 0);
 
   const goToDeposit = () => navigation.navigate("depositScreen");
   const goToWithdraw = () => navigation.navigate("withdrawScreen");
   const goToBundle = () => navigation.navigate("screens/BuyDataScreen");
   const goToRedeem = () => navigation.navigate("redeemScreen");
-  const goToDraws = () => navigation.navigate("screens/DailyLuckyDrawScreen");
+  const goToHistory = () => navigation.navigate("historyScreen");
   
   const goToNotification = () => {
     markNotificationsAsSeen();
     navigation.navigate("notificationScreen");
-  };
-
-  const handleDailyGame = () => {
-    if (tickets <= 0) return setTicketModalVisible(true);
-    navigation.navigate("screens/DailyNumberDrawScreen");
-  };
-
-  const handleMonthlyGame = () => {
-    if (monthlyEligibility.isEligible) {
-      showMonthlyGameModal(
-        "Monthly Draw Eligible! 🎉",
-        `You've made ${monthlyEligibility.purchases} purchases this month.\n\n` +
-        `You're automatically entered into the ₦5,000 monthly draw!\n\n` +
-        `Draw happens at the end of the month (${monthlyEligibility.daysLeft} days left).`,
-        true
-      );
-    } else {
-      showMonthlyGameModal(
-        "Monthly Draw Eligibility",
-        `You need ${monthlyEligibility.required} data purchases this month to qualify for the ₦5,000 monthly draw.\n\n` +
-        `Your purchases this month: ${monthlyEligibility.purchases}/${monthlyEligibility.required}\n` +
-        `Progress: ${Math.round(monthlyEligibility.progress)}%\n` +
-        `Days left this month: ${monthlyEligibility.daysLeft}\n\n` +
-        `Keep buying data bundles to qualify!`,
-        false
-      );
-    }
   };
 
   const pickFromGallery = async () => {
@@ -411,14 +325,19 @@ const HomeScreen = () => {
           </View>
         </MotiView>
 
-        {/* TICKETS */}
-        <Text style={styles.ticketText}>
-          🎫 Available Tickets:{" "}
-          <Text style={{ color: "#FF7A00", fontWeight: "bold" }}>{tickets}</Text>
-        </Text>
-        <Text style={styles.infoText}>
-          ✅ Buy Any Bundle → Unlock Daily Games + Monthly Draw
-        </Text>
+        {/* DATA STATS */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <Ionicons name="wifi" size={24} color="#FF7A00" />
+            <Text style={styles.statNumber}>{dataBundleCount}</Text>
+            <Text style={styles.statLabel}>Bundles Purchased</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Ionicons name="wallet" size={24} color="#FF7A00" />
+            <Text style={styles.statNumber}>₦{totalSavings.toLocaleString()}</Text>
+            <Text style={styles.statLabel}>Total Savings</Text>
+          </View>
+        </View>
 
         {/* WHITE SECTION */}
         <View style={styles.whiteWrapper}>
@@ -438,115 +357,81 @@ const HomeScreen = () => {
               />
               <View style={styles.bundleLeft}>
                 <Ionicons name="wifi-outline" size={28} color="#FF7A00" />
-                <Text style={styles.bundleTitle}>Buy Data Bundle Daily</Text>
-                <TouchableOpacity style={styles.smallBtn} onPress={goToBundle}>
-                  <Text style={styles.smallBtnText}>Buy Now</Text>
+                <Text style={styles.bundleTitle}>Buy Data Bundle</Text>
+                <Text style={styles.bundleDesc}>Affordable data bundles for all networks</Text>
+                <TouchableOpacity style={styles.bigBtn} onPress={goToBundle}>
+                  <Text style={styles.bigBtnText}>Buy Data Now</Text>
                 </TouchableOpacity>
               </View>
-              <View style={styles.dividerVertical} />
               <View style={styles.bundleRight}>
-                <View style={styles.ticketIconContainer}>
-                  <MotiView
-                    from={{ opacity: 0.4, scale: 1 }}
-                    animate={{ opacity: [0.4, 1, 0.4], scale: [1, 1.15, 1] }}
-                    transition={{ loop: true, duration: 1800 }}
-                    style={styles.ticketGlow}
-                  />
-                  <Ionicons name="ticket-outline" size={26} color="#000" />
-                  <MotiView
-                    style={styles.ticketBadge}
-                    from={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring" }}
-                  >
-                    <Text style={styles.ticketBadgeText}>{tickets}</Text>
-                  </MotiView>
+                <View style={styles.featureList}>
+                  <View style={styles.featureItem}>
+                    <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                    <Text style={styles.featureText}>Instant Delivery</Text>
+                  </View>
+                  <View style={styles.featureItem}>
+                    <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                    <Text style={styles.featureText}>Best Prices</Text>
+                  </View>
+                  <View style={styles.featureItem}>
+                    <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                    <Text style={styles.featureText}>All Networks</Text>
+                  </View>
+                  <View style={styles.featureItem}>
+                    <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                    <Text style={styles.featureText}>24/7 Support</Text>
+                  </View>
                 </View>
-                <Text style={styles.bundleDesc}>Win Daily Tickets + Monthly Draw Entry!</Text>
               </View>
             </MotiView>
 
-            {/* DAILY GAME */}
+            {/* TRANSACTION HISTORY */}
             <MotiView
               from={{ scale: 1 }}
-              animate={{ scale: [1, 1.03, 1] }}
-              transition={{ loop: true, duration: 1800 }}
-              style={styles.gameCard}
+              animate={{ scale: [1, 1.02, 1] }}
+              transition={{ loop: true, duration: 2000 }}
+              style={styles.historyCard}
             >
-              <Ionicons name="game-controller" size={28} color="#fff" />
-              <Text style={styles.gameTitle}>Daily Number Picker Game</Text>
-              <Text style={styles.gameSubtitle}>Win ₦2,000 Daily</Text>
-              <TouchableOpacity
-                style={[styles.playBtn, tickets <= 0 ? styles.disabledBtn : null]}
-                onPress={handleDailyGame}
-              >
-                <Text style={styles.playText}>Play Now</Text>
+              <View style={styles.historyHeader}>
+                <Ionicons name="time" size={24} color="#fff" />
+                <Text style={styles.historyTitle}>Recent Transactions</Text>
+              </View>
+              <TouchableOpacity style={styles.historyBtn} onPress={goToHistory}>
+                <Text style={styles.historyBtnText}>View All Transactions</Text>
+                <Ionicons name="arrow-forward" size={18} color="#fff" />
               </TouchableOpacity>
             </MotiView>
 
-            {/* MONTHLY GAME */}
-            <Animated.View
-              style={[
-                styles.monthlyGameCard,
-                { transform: [{ scale: monthlyPulseAnim }] }
-              ]}
-            >
-              <View style={styles.monthlyHeader}>
-                <Ionicons name="trophy" size={24} color="#FFD700" />
-                <Text style={styles.monthlyTitle}>Monthly Draw</Text>
-                {monthlyEligibility.isEligible && (
-                  <View style={styles.eligibleBadge}>
-                    <Text style={styles.eligibleText}>ELIGIBLE</Text>
+            {/* BENEFITS SECTION */}
+            <View style={styles.benefitsCard}>
+              <Text style={styles.benefitsTitle}>Why Choose Biggidata?</Text>
+              <View style={styles.benefitsGrid}>
+                <View style={styles.benefitItem}>
+                  <View style={styles.benefitIcon}>
+                    <Ionicons name="shield-checkmark" size={22} color="#FF7A00" />
                   </View>
-                )}
-              </View>
-              
-              <Text style={styles.monthlyPrize}>₦5,000</Text>
-              <Text style={styles.monthlySubtitle}>Monthly Jackpot</Text>
-              
-              {/* Monthly Progress */}
-              <View style={styles.progressContainer}>
-                <View style={styles.progressLabels}>
-                  <Text style={styles.progressText}>
-                    {monthlyEligibility.purchases}/{monthlyEligibility.required} purchases
-                  </Text>
-                  <Text style={styles.progressPercent}>
-                    {Math.round(monthlyEligibility.progress)}%
-                  </Text>
+                  <Text style={styles.benefitText}>Secure & Reliable</Text>
                 </View>
-                <View style={styles.progressBar}>
-                  <View 
-                    style={[
-                      styles.progressFill,
-                      { 
-                        width: `${monthlyEligibility.progress}%`,
-                        backgroundColor: monthlyEligibility.isEligible ? '#4CAF50' : '#8E2DE2'
-                      }
-                    ]} 
-                  />
+                <View style={styles.benefitItem}>
+                  <View style={styles.benefitIcon}>
+                    <Ionicons name="flash" size={22} color="#FF7A00" />
+                  </View>
+                  <Text style={styles.benefitText}>Instant Delivery</Text>
                 </View>
-                <Text style={styles.daysLeftText}>
-                  {monthlyEligibility.daysLeft} days left this month
-                </Text>
+                <View style={styles.benefitItem}>
+                  <View style={styles.benefitIcon}>
+                    <Ionicons name="cash" size={22} color="#FF7A00" />
+                  </View>
+                  <Text style={styles.benefitText}>Lowest Prices</Text>
+                </View>
+                <View style={styles.benefitItem}>
+                  <View style={styles.benefitIcon}>
+                    <Ionicons name="headset" size={22} color="#FF7A00" />
+                  </View>
+                  <Text style={styles.benefitText}>24/7 Support</Text>
+                </View>
               </View>
-              
-              <TouchableOpacity
-                style={[
-                  styles.monthlyBtn,
-                  monthlyEligibility.isEligible ? styles.eligibleBtn : styles.notEligibleBtn
-                ]}
-                onPress={handleMonthlyGame}
-              >
-                <Ionicons 
-                  name={monthlyEligibility.isEligible ? "checkmark-circle" : "information-circle"} 
-                  size={18} 
-                  color="#FFF" 
-                />
-                <Text style={styles.monthlyBtnText}>
-                  {monthlyEligibility.isEligible ? "You're Eligible!" : "Check Eligibility"}
-                </Text>
-              </TouchableOpacity>
-            </Animated.View>
+            </View>
           </LinearGradient>
         </View>
       </ScrollView>
@@ -568,26 +453,6 @@ const HomeScreen = () => {
                 {uploadingPhoto ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalBtnText}>Upload</Text>}
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* TICKETS MODAL */}
-      <Modal transparent visible={ticketModalVisible} animationType="fade">
-        <View style={styles.modalContainer}>
-          <View style={styles.modalBox}>
-            <Ionicons name="alert-circle" size={42} color="#FF7A00" />
-            <Text style={styles.modalTitle}>No Tickets Available</Text>
-            <Text style={styles.modalMsg}>You need at least 1 ticket to play daily games.</Text>
-            <TouchableOpacity style={styles.modalBtn} onPress={goToBundle}>
-              <Text style={styles.modalBtnText}>Buy Data Bundle</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.modalBtn, { backgroundColor: "#999", marginTop: 8 }]}
-              onPress={() => setTicketModalVisible(false)}
-            >
-              <Text style={styles.modalBtnText}>Cancel</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -634,44 +499,6 @@ const HomeScreen = () => {
         </View>
       </Modal>
 
-      {/* MONTHLY GAME MODAL */}
-      <Modal transparent visible={monthlyGameModalVisible} animationType="fade">
-        <View style={styles.modalContainer}>
-          <View style={styles.modalBox}>
-            <Ionicons 
-              name={monthlyGameModalData.isEligible ? "trophy" : "information-circle"} 
-              size={42} 
-              color={monthlyGameModalData.isEligible ? "#FFD700" : "#FF7A00"} 
-            />
-            <Text style={styles.modalTitle}>{monthlyGameModalData.title}</Text>
-            <Text style={styles.modalMsg}>{monthlyGameModalData.message}</Text>
-            <View style={styles.modalBtnContainer}>
-              <TouchableOpacity 
-                style={[styles.modalBtn, { backgroundColor: "#FF7A00" }]}
-                onPress={() => {
-                  setMonthlyGameModalVisible(false);
-                  if (monthlyGameModalData.isEligible) {
-                    goToDraws();
-                  } else {
-                    goToBundle();
-                  }
-                }}
-              >
-                <Text style={styles.modalBtnText}>
-                  {monthlyGameModalData.isEligible ? "View Draws" : "Buy Data"}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.modalBtn, { backgroundColor: "#999", marginTop: 8 }]}
-                onPress={() => setMonthlyGameModalVisible(false)}
-              >
-                <Text style={styles.modalBtnText}>Close</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
       {/* UPLOAD RESULT MODAL */}
       <Modal transparent visible={uploadModalVisible} animationType="fade">
         <View style={styles.modalContainer}>
@@ -706,13 +533,11 @@ export default HomeScreen;
 /* ====================== STYLES ====================== */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#000" },
-
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
-
   bellContainer: {
     position: "relative",
   },
@@ -736,44 +561,6 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     paddingHorizontal: 4,
   },
-
-  ticketGlow: {
-    position: "absolute",
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#FF7A00",
-    opacity: 0.2,
-  },
-
-  ticketIconContainer: {
-    position: "relative",
-    width: 35,
-    height: 35,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  ticketBadge: {
-    position: "absolute",
-    top: -10,
-    right: -12,
-    backgroundColor: "#FF7A00",
-    borderRadius: 12,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    minWidth: 24,
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 5,
-  },
-
-  ticketBadgeText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 12,
-  },
-
   bundleGlowOverlay: {
     ...StyleSheet.absoluteFillObject,
     shadowColor: "#FF7A00",
@@ -782,34 +569,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     zIndex: -1,
   },
-
-  ticketText: {
-    color: "#fff",
-    fontSize: 15,
-    textAlign: "center",
-    marginTop: 10,
-    fontWeight: "600",
-  },
-
-  infoText: {
-    color: "#fff",
-    fontSize: 13,
-    marginTop: 8,
-    textAlign: "center",
-  },
-
-  disabledBtn: {
-    backgroundColor: "#999",
-    opacity: 0.6,
-  },
-
   modalContainer: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "center",
     alignItems: "center",
   },
-
   modalBox: {
     backgroundColor: "#fff",
     padding: 25,
@@ -817,7 +582,6 @@ const styles = StyleSheet.create({
     width: "85%",
     alignItems: "center",
   },
-
   modalTitle: { 
     fontWeight: "bold", 
     fontSize: 18, 
@@ -830,7 +594,6 @@ const styles = StyleSheet.create({
     color: "#444",
     lineHeight: 20,
   },
-
   modalBtn: {
     backgroundColor: "#FF7A00",
     borderRadius: 8,
@@ -840,23 +603,19 @@ const styles = StyleSheet.create({
     minWidth: 120,
     alignItems: "center",
   },
-
   modalBtnText: { 
     color: "#fff", 
     fontWeight: "bold", 
     fontSize: 14 
   },
-
   modalBtnContainer: {
     width: "100%",
     marginTop: 10,
   },
-
   modalChoiceContainer: {
     width: "100%",
     marginTop: 10,
   },
-
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -864,9 +623,7 @@ const styles = StyleSheet.create({
     marginVertical: 20,
     paddingHorizontal: 16,
   },
-
   userInfo: { flexDirection: "row", alignItems: "center" },
-
   avatar: {
     width: 55,
     height: 55,
@@ -875,7 +632,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#FF7A00",
   },
-
   avatarLoader: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.5)",
@@ -883,38 +639,31 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
   welcomeText: { color: "#fff", fontSize: 20, fontWeight: "700" },
   subText: { color: "#bbb", fontSize: 14 },
-
   bellBtn: {
     backgroundColor: "#fff",
     padding: 12,
     borderRadius: 30,
     elevation: 8,
   },
-
   walletCard: {
     backgroundColor: "#FFA500",
     borderRadius: 15,
     padding: 16,
     marginHorizontal: 16,
   },
-
   balanceRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-
   label: { color: "#222", fontWeight: "600" },
-
   balance: {
     fontSize: 26,
     fontWeight: "800",
     color: "#000",
   },
-
   actionBtn: {
     backgroundColor: "#000",
     paddingVertical: 6,
@@ -922,17 +671,41 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginVertical: 4,
   },
-
   actionText: { color: "#fff", fontWeight: "600" },
-
   redeemBtn: {
     backgroundColor: "#FF7A00",
     paddingVertical: 8,
     paddingHorizontal: 20,
     borderRadius: 8,
   },
-
   divider: { height: 1, backgroundColor: "#00000030", marginVertical: 10 },
+  
+  // STATS SECTION
+  statsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    marginTop: 20,
+  },
+  statCard: {
+    backgroundColor: "#222",
+    borderRadius: 12,
+    padding: 16,
+    alignItems: "center",
+    flex: 1,
+    marginHorizontal: 6,
+  },
+  statNumber: {
+    color: "#fff",
+    fontSize: 22,
+    fontWeight: "700",
+    marginVertical: 4,
+  },
+  statLabel: {
+    color: "#bbb",
+    fontSize: 12,
+    textAlign: "center",
+  },
 
   whiteWrapper: {
     marginTop: 20,
@@ -943,14 +716,12 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 40,
     overflow: "hidden",
   },
-
   whiteSection: {
     paddingTop: 25,
     paddingHorizontal: 16,
     minHeight: 500,
     paddingBottom: 40,
   },
-
   bundleCard: {
     backgroundColor: "#fff",
     borderRadius: 20,
@@ -961,180 +732,135 @@ const styles = StyleSheet.create({
     elevation: 10,
     position: "relative",
   },
-
   bundleLeft: { flex: 1, alignItems: "center" },
-
   bundleRight: { flex: 1.3 },
-
-  bundleTitle: { fontWeight: "700", marginVertical: 6, fontSize: 15 },
-
-  bundleDesc: { fontSize: 13, color: "#333", lineHeight: 18 },
-
-  smallBtn: {
+  bundleTitle: { 
+    fontWeight: "700", 
+    marginVertical: 6, 
+    fontSize: 16,
+    textAlign: "center"
+  },
+  bundleDesc: { 
+    fontSize: 13, 
+    color: "#333", 
+    lineHeight: 18,
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  bigBtn: {
     backgroundColor: "#000",
     borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    marginTop: 4,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    marginTop: 8,
+  },
+  bigBtnText: { 
+    fontSize: 14, 
+    color: "#fff",
+    fontWeight: "600"
+  },
+  featureList: {
+    marginLeft: 10,
+  },
+  featureItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 4,
+  },
+  featureText: {
+    fontSize: 12,
+    color: "#333",
+    marginLeft: 6,
   },
 
-  smallBtnText: { fontSize: 12, color: "#fff" },
-
-  dividerVertical: {
-    width: 1,
-    backgroundColor: "#ddd",
-    marginHorizontal: 10,
-  },
-
-  gameCard: {
+  // HISTORY CARD
+  historyCard: {
     backgroundColor: "#222",
     borderRadius: 16,
     padding: 18,
-    alignItems: "center",
     marginTop: 18,
   },
-
-  gameTitle: {
-    color: "#fff",
-    fontWeight: "700",
-    textAlign: "center",
-    marginVertical: 4,
-  },
-
-  gameSubtitle: {
-    color: "#FFD700",
-    fontSize: 12,
-    marginBottom: 8,
-  },
-
-  playBtn: {
-    backgroundColor: "#FF7A00",
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 24,
-  },
-
-  playText: { color: "#fff", fontWeight: "700" },
-
-  // MONTHLY GAME CARD STYLES
-  monthlyGameCard: {
-    backgroundColor: "#2B006A",
-    borderRadius: 16,
-    padding: 18,
-    marginTop: 18,
-  },
-
-  monthlyHeader: {
+  historyHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 10,
+    marginBottom: 12,
   },
-
-  monthlyTitle: {
+  historyTitle: {
     color: "#fff",
     fontSize: 18,
     fontWeight: "700",
     marginLeft: 8,
   },
-
-  eligibleBadge: {
-    backgroundColor: "#4CAF50",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    marginLeft: 8,
-  },
-
-  eligibleText: {
-    color: "#fff",
-    fontSize: 10,
-    fontWeight: "700",
-  },
-
-  monthlyPrize: {
-    color: "#FFD700",
-    fontSize: 32,
-    fontWeight: "900",
-    textAlign: "center",
-  },
-
-  monthlySubtitle: {
-    color: "rgba(255,255,255,0.8)",
-    textAlign: "center",
-    fontSize: 14,
-    marginBottom: 15,
-  },
-
-  progressContainer: {
-    marginBottom: 15,
-  },
-
-  progressLabels: {
+  historyBtn: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 6,
-  },
-
-  progressText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "500",
-  },
-
-  progressPercent: {
-    color: "#FFD700",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-
-  progressBar: {
-    height: 6,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    borderRadius: 3,
-      overflow: "hidden",  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  daysLeftText: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 11,
-    marginTop: 6,
-    textAlign: 'center',
-  },
-  monthlyBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FF7A00",
     borderRadius: 8,
-    paddingVertical: 10,
+    paddingVertical: 12,
   },
-  eligibleBtn: {
-    backgroundColor: '#4CAF50',
+  historyBtnText: {
+    color: "#fff",
+    fontWeight: "700",
+    marginRight: 8,
   },
-  notEligibleBtn: {
-    backgroundColor: '#8E2DE2',
+
+  // BENEFITS SECTION
+  benefitsCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 18,
+    marginTop: 18,
+    borderWidth: 1,
+    borderColor: "#eee",
   },
-  monthlyBtnText: {
-    color: '#fff',
-    fontWeight: '700',
-    marginLeft: 6,
+  benefitsTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 16,
+    color: "#222",
+  },
+  benefitsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  benefitItem: {
+    width: "48%",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  benefitIcon: {
+    backgroundColor: "#FFF5E6",
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  benefitText: {
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+    color: "#333",
   },
 
   // PREVIEW MODAL STYLES
   previewBox: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 25,
     borderRadius: 14,
-    width: '90%',
-    alignItems: 'center',
+    width: "90%",
+    alignItems: "center",
   },
   previewTitle: {
-    fontWeight: 'bold',
+    fontWeight: "bold",
     fontSize: 18,
     marginBottom: 15,
-    textAlign: 'center',
+    textAlign: "center",
   },
   previewImage: {
     width: 200,
@@ -1142,12 +868,12 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     marginVertical: 15,
     borderWidth: 3,
-    borderColor: '#FF7A00',
+    borderColor: "#FF7A00",
   },
   previewBtns: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
     marginTop: 15,
   },
 });
