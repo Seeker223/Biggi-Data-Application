@@ -68,8 +68,18 @@ const RedeemScreen = () => {
     }
   };
 
+  const getTabColor = () => {
+    switch (activeTab) {
+      case "airtime": return "#FF7A00";
+      case "cash": return "#28A745";
+      case "data": return "#2196F3";
+      default: return "#FF7A00";
+    }
+  };
+
   const validateInputs = () => {
-    if (rewardBalance < (selectedAmount || parseInt(customAmount) || 0)) {
+    const amount = selectedAmount || parseInt(customAmount) || 0;
+    if (rewardBalance < amount) {
       return "Insufficient reward balance";
     }
     
@@ -179,7 +189,7 @@ const RedeemScreen = () => {
                 <LinearGradient
                   colors={
                     selectedAmount === item.amount 
-                      ? ["#FF7A00", "#FF9A00"] 
+                      ? [getTabColor(), getTabColor() + "CC"] 
                       : ["#f9f9f9", "#f0f0f0"]
                   }
                   style={styles.dataCardContent}
@@ -222,7 +232,7 @@ const RedeemScreen = () => {
             <TouchableOpacity
               style={[
                 styles.amountOption,
-                selectedAmount === amount && styles.selectedAmountOption,
+                selectedAmount === amount && [styles.selectedAmountOption, { backgroundColor: getTabColor(), borderColor: getTabColor() }],
               ]}
               onPress={() => handleAmountSelect(amount)}
             >
@@ -245,7 +255,7 @@ const RedeemScreen = () => {
           <TouchableOpacity
             style={[
               styles.amountOption,
-              showCustomInput && styles.selectedAmountOption,
+              showCustomInput && [styles.selectedAmountOption, { backgroundColor: getTabColor(), borderColor: getTabColor() }],
             ]}
             onPress={handleCustomAmount}
           >
@@ -376,15 +386,6 @@ const RedeemScreen = () => {
     return null;
   };
 
-  const getTabColor = () => {
-    switch (activeTab) {
-      case "airtime": return "#FF7A00";
-      case "cash": return "#28A745";
-      case "data": return "#2196F3";
-      default: return "#FF7A00";
-    }
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -446,15 +447,15 @@ const RedeemScreen = () => {
             <TouchableOpacity
               style={[
                 styles.tab,
-                activeTab === "airtime" && styles.activeTab,
-                { borderColor: getTabColor() }
+                activeTab === "airtime" && [styles.activeTab, { backgroundColor: "#FF7A00" }],
+                { borderColor: "#FF7A00" }
               ]}
               onPress={() => setActiveTab("airtime")}
             >
               <Ionicons 
                 name="call" 
                 size={20} 
-                color={activeTab === "airtime" ? "#fff" : getTabColor()} 
+                color={activeTab === "airtime" ? "#fff" : "#FF7A00"} 
               />
               <Text style={[
                 styles.tabText,
@@ -467,7 +468,7 @@ const RedeemScreen = () => {
             <TouchableOpacity
               style={[
                 styles.tab,
-                activeTab === "cash" && styles.activeTab,
+                activeTab === "cash" && [styles.activeTab, { backgroundColor: "#28A745" }],
                 { borderColor: "#28A745" }
               ]}
               onPress={() => setActiveTab("cash")}
@@ -488,7 +489,7 @@ const RedeemScreen = () => {
             <TouchableOpacity
               style={[
                 styles.tab,
-                activeTab === "data" && styles.activeTab,
+                activeTab === "data" && [styles.activeTab, { backgroundColor: "#2196F3" }],
                 { borderColor: "#2196F3" }
               ]}
               onPress={() => setActiveTab("data")}
@@ -599,7 +600,7 @@ const RedeemScreen = () => {
             >
               <Text style={styles.okText}>Redeem More</Text>
             </TouchableOpacity>
-          </View>
+          </MotiView>
         </View>
       </Modal>
     </SafeAreaView>
@@ -717,9 +718,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     marginHorizontal: 2,
+    backgroundColor: "transparent",
   },
   activeTab: {
-    backgroundColor: "#FF7A00",
+    // backgroundColor will be set dynamically based on tab
   },
   tabText: {
     fontSize: 14,
@@ -748,7 +750,6 @@ const styles = StyleSheet.create({
     borderColor: "#f0f0f0",
   },
   selectedAmountOption: {
-    backgroundColor: "#FF7A00",
     borderColor: "#FF7A00",
   },
   amountText: {
