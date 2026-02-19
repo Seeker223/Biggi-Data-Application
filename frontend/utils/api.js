@@ -1,9 +1,31 @@
 // frontend/utils/api.js
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
+import Constants from "expo-constants";
 
 // 🌍 Validate Base URL from Expo Environment
-const BASE_URL = process.env.EXPO_PUBLIC_BASE_URL || "http://localhost:5000";
+const normalizeBaseUrl = (url = "") => url.trim().replace(/\/+$/, "");
+
+const resolveBaseUrl = () => {
+  const envBaseUrl = normalizeBaseUrl(process.env.EXPO_PUBLIC_BASE_URL || "");
+  if (envBaseUrl) return envBaseUrl;
+
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    Constants.manifest2?.extra?.expoClient?.hostUri ||
+    Constants.manifest?.debuggerHost ||
+    "";
+
+  const host = hostUri.split(":")[0];
+  if (host) return `http://${host}:5000`;
+
+  if (Platform.OS === "android") return "http://10.0.2.2:5000";
+
+  return "http://localhost:5000";
+};
+
+const BASE_URL = resolveBaseUrl();
 
 if (!BASE_URL) {
   console.error("❌ Missing EXPO_PUBLIC_BASE_URL. Set it in .env");
