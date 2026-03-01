@@ -20,11 +20,68 @@ const api = axios.create({
   timeout: 15000,
 });
 
+const getStoredRefreshToken = async () => {
+  const values = await AsyncStorage.multiGet([
+    "refreshToken",
+    "userRefreshToken",
+    "refresh_token",
+  ]);
+  for (const [, value] of values) {
+    if (value) return value;
+  }
+  return null;
+};
+
+const persistRefreshToken = async (token) => {
+  if (!token) return;
+  await AsyncStorage.multiSet([
+    ["refreshToken", token],
+    ["userRefreshToken", token],
+    ["refresh_token", token],
+  ]);
+};
+
+const clearStoredTokens = async () => {
+  await AsyncStorage.multiRemove([
+    "userToken",
+    "token",
+    "refreshToken",
+    "userRefreshToken",
+    "refresh_token",
+  ]);
+};
+
+let refreshHydrationPromise = null;
+const hydrateRefreshTokenIfMissing = async () => {
+  const userToken = (await AsyncStorage.getItem("userToken")) || (await AsyncStorage.getItem("token"));
+  if (!userToken) return;
+  const refreshToken = await getStoredRefreshToken();
+  if (refreshToken) return;
+
+  if (!refreshHydrationPromise) {
+    refreshHydrationPromise = axios
+      .get(`${BASE_URL}/api/v1/auth/me`, {
+        headers: { Authorization: `Bearer ${userToken}` },
+        timeout: 10000,
+      })
+      .then(async (res) => {
+        if (res?.data?.refreshToken) await persistRefreshToken(res.data.refreshToken);
+      })
+      .catch(() => {})
+      .finally(() => {
+        refreshHydrationPromise = null;
+      });
+  }
+
+  await refreshHydrationPromise;
+};
+
 // -----------------------------------------------------------
 // 🔐 Attach access token automatically
 // -----------------------------------------------------------
 api.interceptors.request.use(async (config) => {
-  const token = await AsyncStorage.getItem("userToken");
+  await hydrateRefreshTokenIfMissing();
+  const token = (await AsyncStorage.getItem("userToken")) || (await AsyncStorage.getItem("token"));
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -85,9 +142,9 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const refreshToken = await AsyncStorage.getItem("refreshToken");
+        const refreshToken = await getStoredRefreshToken();
         if (!refreshToken) {
-          throw new Error("No refresh token available");
+          return Promise.reject(error);
         }
 
         const res = await axios.post(
@@ -100,8 +157,10 @@ api.interceptors.response.use(
         );
 
         const newAccessToken = res.data.accessToken;
+        const newRefreshToken = res.data.refreshToken || refreshToken;
 
         await AsyncStorage.setItem("userToken", newAccessToken);
+        await persistRefreshToken(newRefreshToken);
 
         api.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
@@ -113,7 +172,7 @@ api.interceptors.response.use(
         processQueue(refreshError, null);
 
         // ❌ Refresh failed → force logout
-        await AsyncStorage.multiRemove(["userToken", "refreshToken"]);
+        await clearStoredTokens();
         delete api.defaults.headers.common.Authorization;
 
         console.error("❌ Token refresh failed:", refreshError);

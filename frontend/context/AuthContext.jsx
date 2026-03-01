@@ -25,8 +25,13 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const storedToken = await AsyncStorage.getItem("userToken");
-        const storedRefresh = await AsyncStorage.getItem("refreshToken");
+        const storedToken =
+          (await AsyncStorage.getItem("userToken")) ||
+          (await AsyncStorage.getItem("token"));
+        const storedRefresh =
+          (await AsyncStorage.getItem("refreshToken")) ||
+          (await AsyncStorage.getItem("userRefreshToken")) ||
+          (await AsyncStorage.getItem("refresh_token"));
         const storedLastSeen = await AsyncStorage.getItem("lastSeenNotificationTime");
 
         if (storedLastSeen) {
@@ -37,18 +42,26 @@ export const AuthProvider = ({ children }) => {
           setLastSeenNotificationTime(defaultTime);
         }
 
-        if (!storedToken || !storedRefresh) {
+        if (!storedToken) {
           setAuthLoading(false);
           return;
         }
 
         setToken(storedToken);
-        setRefreshToken(storedRefresh);
+        if (storedRefresh) setRefreshToken(storedRefresh);
         api.defaults.headers.common.Authorization = `Bearer ${storedToken}`;
 
         const res = await api.get("/auth/me");
         if (res.data?.success) {
           setUser(res.data.user);
+          if (res.data?.refreshToken) {
+            await AsyncStorage.multiSet([
+              ["refreshToken", res.data.refreshToken],
+              ["userRefreshToken", res.data.refreshToken],
+              ["refresh_token", res.data.refreshToken],
+            ]);
+            setRefreshToken(res.data.refreshToken);
+          }
           await loadDepositHistory();
           await calculateNotificationCount();
         }
@@ -145,9 +158,15 @@ export const AuthProvider = ({ children }) => {
   /* ---------------- Store tokens ---------------- */
   const storeTokens = async (newToken, newRefresh) => {
     await AsyncStorage.setItem("userToken", newToken);
-    await AsyncStorage.setItem("refreshToken", newRefresh);
+    if (newRefresh) {
+      await AsyncStorage.multiSet([
+        ["refreshToken", newRefresh],
+        ["userRefreshToken", newRefresh],
+        ["refresh_token", newRefresh],
+      ]);
+      setRefreshToken(newRefresh);
+    }
     setToken(newToken);
-    setRefreshToken(newRefresh);
     api.defaults.headers.common.Authorization = `Bearer ${newToken}`;
   };
 
@@ -192,7 +211,14 @@ export const AuthProvider = ({ children }) => {
 
   /* ---------------- Logout ---------------- */
   const logout = async () => {
-    await AsyncStorage.multiRemove(["userToken", "refreshToken", "lastSeenNotificationTime"]);
+    await AsyncStorage.multiRemove([
+      "userToken",
+      "token",
+      "refreshToken",
+      "userRefreshToken",
+      "refresh_token",
+      "lastSeenNotificationTime",
+    ]);
     delete api.defaults.headers.common.Authorization;
     setToken(null);
     setRefreshToken(null);
@@ -201,43 +227,6 @@ export const AuthProvider = ({ children }) => {
     setNotificationCount(0);
     setLastSeenNotificationTime(null);
   };
-
-  /* ---------------- Refresh access token ---------------- */
-  const refreshAccessToken = async () => {
-    if (!refreshToken) return logout();
-
-    try {
-      const res = await api.post("/auth/refresh", { refreshToken });
-      await AsyncStorage.setItem("userToken", res.data.accessToken);
-      setToken(res.data.accessToken);
-      api.defaults.headers.common.Authorization = `Bearer ${res.data.accessToken}`;
-      return res.data.accessToken;
-    } catch (err) {
-      console.log("Refresh token failed:", err.response?.data || err);
-      await logout();
-    }
-  };
-
-  /* ---------------- Axios interceptor ---------------- */
-  useEffect(() => {
-    const interceptor = api.interceptors.response.use(
-      (response) => response,
-      async (error) => {
-        const originalRequest = error.config;
-        if (error.response?.status === 401 && !originalRequest._retry) {
-          originalRequest._retry = true;
-          const newToken = await refreshAccessToken();
-          if (newToken) {
-            originalRequest.headers.Authorization = `Bearer ${newToken}`;
-            return api(originalRequest);
-          }
-        }
-        return Promise.reject(error);
-      }
-    );
-
-    return () => api.interceptors.response.eject(interceptor);
-  }, [refreshToken]);
 
   /* ---------------- PROVIDER ---------------- */
   return (
